@@ -45,6 +45,12 @@ After reviewing the skeleton more carefully I also noticed two things worth flag
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
 
+The main tradeoff I noticed is that `build_daily_plan()` is greedy — it just goes through tasks in priority order and adds them if they fit. It never looks back. So if a big high-priority task eats up a lot of time early, you might miss three smaller tasks that could have all fit instead.
+
+I left it greedy on purpose though. For something like a daily pet care schedule, you don't need a perfect solution — you need something fast and easy to understand. If the highest priority task goes first, that makes sense to any pet owner without any explanation needed. I'd only rethink this if the task list got really long.
+
+The conflict detection is also a soft tradeoff. When two tasks have overlapping start times, `detect_time_conflicts()` just prints a warning instead of crashing or auto-fixing it. That felt right to me — maybe two people are helping out, or the owner just wants to know and decide for themselves. Silently moving things around without telling anyone would feel worse.
+
 ---
 
 ## 3. AI Collaboration
