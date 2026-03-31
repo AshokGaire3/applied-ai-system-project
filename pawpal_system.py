@@ -2,6 +2,8 @@
 PawPal+ core system: Task, Pet, Owner, Scheduler
 """
 
+import json
+import os
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Optional
@@ -82,6 +84,38 @@ class Task:
         """Return a numeric rank (3=high, 2=medium, 1=low) used for sorting."""
         return {"high": 3, "medium": 2, "low": 1}[self.priority]
 
+    def to_dict(self) -> dict:
+        """Serialize this task to a JSON-compatible dictionary."""
+        return {
+            "description": self.description,
+            "duration_minutes": self.duration_minutes,
+            "priority": self.priority,
+            "frequency": self.frequency,
+            "start_time": self.start_time,
+            "completed": self.completed,
+            "last_completed_date": self.last_completed_date.isoformat() if self.last_completed_date else None,
+            "next_due_date": self.next_due_date.isoformat() if self.next_due_date else None,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Task":
+        """Reconstruct a Task from a dictionary produced by to_dict()."""
+        task = cls(
+            description=data["description"],
+            duration_minutes=data["duration_minutes"],
+            priority=data["priority"],
+            frequency=data["frequency"],
+            start_time=data.get("start_time"),
+        )
+        task.completed = data.get("completed", False)
+        task.last_completed_date = (
+            date.fromisoformat(data["last_completed_date"]) if data.get("last_completed_date") else None
+        )
+        task.next_due_date = (
+            date.fromisoformat(data["next_due_date"]) if data.get("next_due_date") else None
+        )
+        return task
+
     def end_time(self) -> Optional[str]:
         """Return the HH:MM end time calculated from start_time + duration, or None."""
         if self.start_time is None:
@@ -138,6 +172,23 @@ class Pet:
         """Return the sum of duration_minutes across all tasks."""
         return sum(t.duration_minutes for t in self._tasks)
 
+    def to_dict(self) -> dict:
+        """Serialize this pet (and its tasks) to a JSON-compatible dictionary."""
+        return {
+            "name": self.name,
+            "species": self.species,
+            "age_years": self.age_years,
+            "tasks": [t.to_dict() for t in self._tasks],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Pet":
+        """Reconstruct a Pet (and its tasks) from a dictionary produced by to_dict()."""
+        pet = cls(name=data["name"], species=data["species"], age_years=data.get("age_years", 0.0))
+        for task_data in data.get("tasks", []):
+            pet.add_task(Task.from_dict(task_data))
+        return pet
+
 
 # ---------------------------------------------------------------------------
 # Owner
@@ -185,6 +236,31 @@ class Owner:
     def total_due_minutes(self, on_date: Optional[date] = None) -> int:
         """Return total minutes needed for all due tasks today."""
         return sum(t.duration_minutes for _, t in self.get_all_due_tasks(on_date))
+
+    def save_to_json(self, filepath: str = "data.json") -> None:
+        """Persist the owner, their pets, and all tasks to a JSON file."""
+        data = {
+            "name": self.name,
+            "available_minutes_per_day": self.available_minutes_per_day,
+            "pets": [p.to_dict() for p in self._pets],
+        }
+        with open(filepath, "w") as f:
+            json.dump(data, f, indent=2)
+
+    @classmethod
+    def load_from_json(cls, filepath: str = "data.json") -> Optional["Owner"]:
+        """Load an Owner from a JSON file; returns None if the file doesn't exist."""
+        if not os.path.exists(filepath):
+            return None
+        with open(filepath, "r") as f:
+            data = json.load(f)
+        owner = cls(
+            name=data["name"],
+            available_minutes_per_day=data["available_minutes_per_day"],
+        )
+        for pet_data in data.get("pets", []):
+            owner.add_pet(Pet.from_dict(pet_data))
+        return owner
 
     def __repr__(self) -> str:
         """Return a concise string representation of this owner."""
