@@ -1,0 +1,12 @@
+{
+  "name": "Jordan",
+  "available_minutes_per_day": 120,
+  "pets": [
+    {
+      "name": "Mochi",
+      "species": "dog",
+      "age_years": 2.0,
+      "tasks": []
+    }
+  ]
+}
