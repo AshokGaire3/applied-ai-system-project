@@ -9,37 +9,90 @@ st.caption("A daily pet care planner powered by Python classes.")
 st.divider()
 
 # ---------------------------------------------------------------------------
-# Step 2: Session state — the "vault"
-# The Owner object lives here so it survives every Streamlit rerun.
-# We only create it once; after that we just read it from the vault.
+# Helper: emoji maps  (Challenge 3 & 4 — professional UI formatting)
 # ---------------------------------------------------------------------------
+
+PRIORITY_EMOJI = {"high": "🔴 High", "medium": "🟡 Medium", "low": "🟢 Low"}
+SPECIES_EMOJI  = {"dog": "🐕", "cat": "🐈", "rabbit": "🐇"}
+
+def species_icon(species: str) -> str:
+    return SPECIES_EMOJI.get(species.lower(), "🐾")
+
+def task_emoji(description: str) -> str:
+    desc = description.lower()
+    if any(w in desc for w in ("walk", "run", "exercise", "hike")):
+        return "🦮"
+    if any(w in desc for w in ("feed", "food", "meal", "kibble", "treat")):
+        return "🍖"
+    if any(w in desc for w in ("med", "pill", "insulin", "shot", "vet")):
+        return "💊"
+    if any(w in desc for w in ("groom", "brush", "bath", "nail", "clean")):
+        return "✂️"
+    if any(w in desc for w in ("play", "toy", "fetch", "enrichment")):
+        return "🎾"
+    if any(w in desc for w in ("water", "drink")):
+        return "💧"
+    return "📋"
+
+DATA_FILE = "data.json"
+
+# ---------------------------------------------------------------------------
+# Step 2: Session state — the "vault"
+# Challenge 2: try to load persisted data on first run
+# ---------------------------------------------------------------------------
+
+if "owner" not in st.session_state:
+    loaded = Owner.load_from_json(DATA_FILE)
+    if loaded is not None:
+        st.session_state.owner = loaded
+        st.session_state._loaded_from_file = True
+    else:
+        st.session_state._loaded_from_file = False
+
+if st.session_state.get("_loaded_from_file"):
+    st.success(
+        f"Data loaded from **{DATA_FILE}** — welcome back, "
+        f"{st.session_state.owner.name}! "
+        f"({len(st.session_state.owner.get_pets())} pet(s) restored)"
+    )
+    st.session_state._loaded_from_file = False   # only show banner once
 
 # ── Owner setup ─────────────────────────────────────────────────────────────
 st.subheader("1. Owner Setup")
 
-owner_name = st.text_input("Your name", value="Jordan")
+owner_name = st.text_input(
+    "Your name",
+    value=st.session_state.owner.name if "owner" in st.session_state else "Jordan",
+)
 available_minutes = st.number_input(
     "Minutes available for pet care today",
-    min_value=10, max_value=480, value=120, step=10
+    min_value=10, max_value=480,
+    value=st.session_state.owner.available_minutes_per_day if "owner" in st.session_state else 120,
+    step=10,
 )
 
-if st.button("Set / Update Owner"):
-    # Always rebuild the owner when the user explicitly submits,
-    # but keep any pets that were already registered.
-    if "owner" not in st.session_state:
-        st.session_state.owner = Owner(
-            name=owner_name,
-            available_minutes_per_day=int(available_minutes)
-        )
-    else:
-        # Update name and budget without losing pets
-        st.session_state.owner.name = owner_name
-        st.session_state.owner.available_minutes_per_day = int(available_minutes)
-    st.success(f"Owner set: {st.session_state.owner}")
+col_set, col_save = st.columns(2)
+with col_set:
+    if st.button("Set / Update Owner"):
+        if "owner" not in st.session_state:
+            st.session_state.owner = Owner(
+                name=owner_name,
+                available_minutes_per_day=int(available_minutes),
+            )
+        else:
+            st.session_state.owner.name = owner_name
+            st.session_state.owner.available_minutes_per_day = int(available_minutes)
+        st.success(f"Owner set: {st.session_state.owner}")
+
+with col_save:
+    if "owner" in st.session_state:
+        if st.button("💾 Save to data.json"):
+            st.session_state.owner.save_to_json(DATA_FILE)
+            st.success(f"Data saved to **{DATA_FILE}**.")
 
 if "owner" not in st.session_state:
     st.info("Set an owner above to continue.")
-    st.stop()          # Nothing below can run without an owner
+    st.stop()
 
 st.divider()
 
@@ -55,21 +108,23 @@ with col3:
     age = st.number_input("Age (years)", min_value=0.0, max_value=30.0, value=2.0, step=0.5)
 
 if st.button("Add Pet"):
-    # Check the owner's existing pets so we don't add the same name twice
     existing_names = [p.name.lower() for p in st.session_state.owner.get_pets()]
     if pet_name.lower() in existing_names:
         st.warning(f"A pet named '{pet_name}' already exists.")
     else:
         new_pet = Pet(name=pet_name, species=species, age_years=float(age))
-        st.session_state.owner.add_pet(new_pet)   # <-- Pet method call
-        st.success(f"Added {new_pet.name} the {new_pet.species}!")
+        st.session_state.owner.add_pet(new_pet)
+        st.session_state.owner.save_to_json(DATA_FILE)
+        st.success(f"Added {species_icon(species)} **{new_pet.name}** the {new_pet.species}!")
 
-# Show current pets
 pets = st.session_state.owner.get_pets()
 if pets:
     st.markdown("**Registered pets:**")
     for p in pets:
-        st.markdown(f"- **{p.name}** ({p.species}, {p.age_years}y) — {len(p.get_tasks())} task(s)")
+        st.markdown(
+            f"- {species_icon(p.species)} **{p.name}** ({p.species}, {p.age_years}y)"
+            f" — {len(p.get_tasks())} task(s)"
+        )
 else:
     st.info("No pets yet. Add one above.")
 
@@ -98,7 +153,6 @@ else:
 
     if st.button("Add Task"):
         target_pet = next(p for p in pets if p.name == selected_pet_name)
-        # Only pass start_time if the user filled it in
         start_time_val = start_time_input.strip() or None
         try:
             new_task = Task(
@@ -109,25 +163,41 @@ else:
                 start_time=start_time_val,
             )
             target_pet.add_task(new_task)
-            st.success(f"Task '{task_desc}' added to {target_pet.name}!")
+            st.session_state.owner.save_to_json(DATA_FILE)
+            st.success(f"{task_emoji(task_desc)} Task '{task_desc}' added to {target_pet.name}!")
         except ValueError as e:
             st.error(f"Invalid input: {e}")
 
-    # Show all tasks across all pets
+    # Show all tasks with emoji color-coding (Challenge 3 & 4)
     all_pairs = st.session_state.owner.get_all_tasks()
     if all_pairs:
-        st.markdown("**All tasks:**")
+        sorted_pairs = sorted(all_pairs, key=lambda pair: pair[1].start_time or "99:99")
+
+        st.markdown("**All tasks (sorted by scheduled start time):**")
         rows = [
             {
-                "Pet": pet.name,
-                "Task": task.description,
+                "Pet": f"{species_icon(pet.species)} {pet.name}",
+                "Task": f"{task_emoji(task.description)} {task.description}",
+                "Start Time": task.start_time or "—",
                 "Duration (min)": task.duration_minutes,
-                "Priority": task.priority,
+                "Priority": PRIORITY_EMOJI.get(task.priority, task.priority),
                 "Frequency": task.frequency,
+                "Status": "✅ Done" if task.completed else "⏳ Pending",
             }
-            for pet, task in all_pairs
+            for pet, task in sorted_pairs
         ]
         st.table(rows)
+
+        scheduler_preview = Scheduler(st.session_state.owner)
+        early_conflicts = scheduler_preview.detect_time_conflicts()
+        if early_conflicts:
+            st.warning(
+                f"**{len(early_conflicts)} time conflict(s) detected in your task list.**  \n"
+                "Two or more tasks overlap in the same time window. Adjust start times, "
+                "ask a helper to take one task, or remove the overlap before generating the schedule."
+            )
+            for c in early_conflicts:
+                st.markdown(f"- {c}")
 
 st.divider()
 
@@ -141,19 +211,65 @@ if st.button("Generate Schedule"):
     if not plan:
         st.warning("No due tasks found. Add some tasks above and try again.")
     else:
-        st.success("Schedule built!")
-        st.text(scheduler.summary(plan))
+        total_scheduled = sum(e["end_min"] - e["start_min"] for e in plan)
+        budget = st.session_state.owner.available_minutes_per_day
+        st.success(
+            f"Schedule built! {len(plan)} task(s) scheduled — "
+            f"{total_scheduled} of {budget} minutes used."
+        )
 
-        # Conflict detection
+        plan_rows = []
+        for entry in plan:
+            pet  = entry["pet"]
+            task = entry["task"]
+            start_label = scheduler._min_to_time(entry["start_min"])
+            end_label   = scheduler._min_to_time(entry["end_min"])
+            plan_rows.append({
+                "Time Window": f"{start_label} – {end_label}",
+                "Pet": f"{species_icon(pet.species)} {pet.name}",
+                "Task": f"{task_emoji(task.description)} {task.description}",
+                "Duration (min)": task.duration_minutes,
+                "Priority": PRIORITY_EMOJI.get(task.priority, task.priority),
+                "Frequency": task.frequency,
+                "Reason": entry.get("reason", ""),
+            })
+        st.table(plan_rows)
+
+        plan_conflicts = scheduler.detect_conflicts(plan)
         time_conflicts = scheduler.detect_time_conflicts()
-        if time_conflicts:
-            st.error(f"{len(time_conflicts)} time conflict(s) detected:")
-            for c in time_conflicts:
-                st.markdown(f"- {c}")
+        all_conflicts  = plan_conflicts + time_conflicts
 
-        # Surface anything that didn't fit the time budget
+        if all_conflicts:
+            st.warning(
+                f"**{len(all_conflicts)} conflict(s) detected.**  \n"
+                "Some tasks overlap in time. Here's what that means for you:  \n"
+                "- If two tasks are for the same pet, you may need to stagger them "
+                "or ask a helper.  \n"
+                "- If tasks are for different pets, check whether one can wait a few minutes.  \n"
+                "Adjust the start times in **Step 3** and regenerate the schedule."
+            )
+            for c in all_conflicts:
+                st.markdown(f"- {c}")
+        else:
+            st.success("No time conflicts — your schedule is clean!")
+
         skipped = scheduler.get_unscheduled_tasks(plan)
         if skipped:
-            st.warning(f"{len(skipped)} task(s) didn't fit in your time budget:")
-            for pet, task in skipped:
-                st.markdown(f"- **{task.description}** ({pet.name}) — {task.duration_minutes} min")
+            st.warning(
+                f"**{len(skipped)} task(s) didn't fit in your {budget}-minute budget** "
+                "and were left out of today's plan. Consider increasing your available "
+                "time, shortening a task, or moving lower-priority tasks to another day."
+            )
+            skipped_rows = [
+                {
+                    "Pet": f"{species_icon(pet.species)} {pet.name}",
+                    "Task": f"{task_emoji(task.description)} {task.description}",
+                    "Duration (min)": task.duration_minutes,
+                    "Priority": PRIORITY_EMOJI.get(task.priority, task.priority),
+                    "Frequency": task.frequency,
+                }
+                for pet, task in skipped
+            ]
+            st.table(skipped_rows)
+        else:
+            st.success("All due tasks fit within your time budget!")
