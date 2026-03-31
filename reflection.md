@@ -134,3 +134,38 @@ I'd also look at the conflict detection — doing a pairwise comparison on every
 - What is one important thing you learned about designing systems or working with AI on this project?
 
 I think the main thing I learned is that AI saves you time on writing code but not on figuring out what the code should actually do. The decisions like "should this auto-fix or just warn", "should this be greedy or optimal", "does Task need a reference to Pet" — those still took real thought. If anything, being able to implement things fast made those decisions more important because you can go pretty far in the wrong direction very quickly before you notice.
+
+---
+
+## 6. Prompt Comparison (Challenge 5)
+
+**Task chosen:** Design a `save_to_json` / `load_from_json` persistence layer for the `Owner` class that correctly handles Python `date` objects and private `_tasks` attributes.
+
+**Prompt used with both models:**
+> "Add `save_to_json` and `load_from_json` methods to the `Owner` class in `pawpal_system.py`. The Owner owns a list of `Pet` objects, and each Pet has a private `_tasks` list of `Task` dataclasses. Task has `last_completed_date` and `next_due_date` fields that are Python `date` objects or `None`. Serialize everything to a flat JSON file and reconstruct it faithfully on load."
+
+---
+
+### Model A — GPT-4o (OpenAI)
+
+GPT-4o produced a working solution, but its first version reached directly into Pet's private `_tasks` list (`pet._tasks`) rather than going through the public API. It serialized dates by calling `str()` on them (which works, but `date.fromisoformat()` is the paired inverse and more idiomatic). It also placed the `from_dict` reconstruction logic inline inside `load_from_json` rather than as separate `Task.from_dict` / `Pet.from_dict` classmethods, creating a long monolithic function. When prompted to add nested classmethods, it did so correctly — but only after a second prompt.
+
+---
+
+### Model B — Claude Sonnet 4.6 (Anthropic)
+
+Claude's first response immediately proposed the symmetric `to_dict()` / `from_dict()` classmethod pattern on both `Task` and `Pet`, keeping each class responsible for its own serialization. It used `date.isoformat()` and `date.fromisoformat()` as the symmetric pair, and it accessed `_tasks` only through the public `get_tasks()` and `add_task()` methods — respecting encapsulation without being asked. The `Owner.save_to_json` / `Owner.load_from_json` methods were then thin wrappers that delegated to the per-class methods.
+
+---
+
+### Comparison
+
+| Dimension | GPT-4o | Claude Sonnet 4.6 |
+|---|---|---|
+| Encapsulation | Accessed `pet._tasks` directly | Used public `get_tasks()` / `add_task()` |
+| Date serialization | `str(date)` | `date.isoformat()` / `date.fromisoformat()` |
+| Structure | Monolithic `load_from_json` | Distributed `to_dict`/`from_dict` per class |
+| Prompts needed | 2 (needed a follow-up for classmethods) | 1 |
+| Pythonic quality | Functional but procedural | More idiomatic OOP |
+
+**Winner: Claude Sonnet 4.6** — The distributed classmethod pattern it proposed on the first try is more modular, more Pythonic, and easier to test in isolation. Each class now owns its own serialization contract, which means a change to `Task`'s fields only requires updating `Task.to_dict` and `Task.from_dict` — no other class needs to change. GPT-4o's solution worked but required a second prompt to reach the same structure, and its direct access to `_tasks` would silently break if the attribute name ever changed.
