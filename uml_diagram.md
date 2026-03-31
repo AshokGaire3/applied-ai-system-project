@@ -1,6 +1,5 @@
 # PawPal+ — Mermaid.js Class Diagram
 
-```mermaid
 classDiagram
 
     class Task {
@@ -8,15 +7,15 @@ classDiagram
         +int duration_minutes
         +str priority
         +str frequency
-        +str start_time
+        +Optional~str~ start_time
         +bool completed
-        +date last_completed_date
-        +date next_due_date
+        +Optional~date~ last_completed_date
+        +Optional~date~ next_due_date
         +mark_complete(on_date) None
         +reset() None
         +is_due(on_date) bool
         +priority_rank() int
-        +end_time() str
+        +end_time() Optional~str~
     }
 
     class Pet {
@@ -54,35 +53,13 @@ classDiagram
         +get_unscheduled_tasks(plan, on_date) list
         +advance_day() None
         +summary(plan) str
+        -_explain(pet, task, elapsed) str
+        -_min_to_time(minutes) str
+        -_hhmm_to_min(hhmm) int
     }
 
     Owner "1" *-- "0..*" Pet   : owns
     Pet   "1" *-- "0..*" Task  : has
-    Scheduler --> Owner        : schedules for
-    Scheduler ..> Pet          : reads via Owner
-    Scheduler ..> Task         : reads via Pet
-```
-
-## Relationship key
-
-| Symbol | Meaning |
-|--------|---------|
-| `*--`  | Composition — child cannot exist without the parent |
-| `-->`  | Association — Scheduler holds a direct reference to Owner |
-| `..>`  | Dependency — Scheduler reads Pet/Task but does not own them |
-
-## Data flow (how Scheduler reaches tasks)
-
-```
-Scheduler.build_daily_plan()
-    └── owner.get_all_due_tasks()
-            └── pet.get_due_tasks()
-                    └── task.is_due()
-
-Scheduler.sort_by_time(tasks)
-    └── sorted(..., key=lambda t: t.start_time or "99:99")
-
-Scheduler.detect_time_conflicts()
-    └── owner.get_all_tasks()
-            └── compare HH:MM windows pairwise
-```
+    Scheduler "1" --> "1" Owner  : schedules for
+    Scheduler ..> Pet            : reads via Owner
+    Scheduler ..> Task           : reads via Pet
