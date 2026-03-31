@@ -30,7 +30,13 @@ A busy pet owner needs help staying consistent with pet care. They want an assis
 
 ## 📸 Demo
 
-<a href="/course_images/ai110/pawpal_screenshot.png" target="_blank"><img src='/course_images/ai110/pawpal_screenshot.png' title='PawPal App' width='' alt='PawPal App' class='center-block' /></a>
+<a href="assets/Demo1.png" target="_blank"><img src='assets/Demo1.png' title='PawPal App' width='' alt='PawPal App' class='center-block' /></a>
+
+<a href="assets/Demo2.png" target="_blank"><img src='assets/Demo2.png' title='PawPal App - Schedule' width='' alt='PawPal App Schedule' class='center-block' /></a>
+
+## 🗂 System Architecture
+
+<a href="assets/uml_final.png" target="_blank"><img src='assets/uml_final.png' title='PawPal UML Diagram' width='' alt='PawPal UML' class='center-block' /></a>
 
 ---
 
@@ -72,9 +78,13 @@ Pawpal/
 ├── pawpal_system.py    # Core classes: Task, Pet, Owner, Scheduler
 ├── main.py             # CLI demo of all algorithmic features
 ├── cli_demo.py         # Extended scenario demonstrations
-├── uml_final.md        # Final Mermaid.js class diagram (export to uml_final.png)
+├── uml_diagram.md      # Final Mermaid.js class diagram source
 ├── reflection.md       # Design and AI collaboration reflection
 ├── requirements.txt
+├── assets/
+│   ├── Demo1.png       # App screenshot
+│   ├── Demo2.png       # App screenshot (schedule view)
+│   └── uml_final.png   # Exported UML diagram
 └── tests/
     ├── test_pawpal.py  # Core system tests
     └── test_models.py  # Model layer tests
