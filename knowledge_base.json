@@ -1,0 +1,50 @@
+[
+  {
+    "id": "kb_walks",
+    "title": "Daily walks and exercise",
+    "tags": ["dog", "walk", "exercise"],
+    "content": "Most dogs benefit from at least two walks per day. Short, consistent walks reduce stress and help with digestion."
+  },
+  {
+    "id": "kb_feeding",
+    "title": "Consistent feeding times",
+    "tags": ["feed", "meal", "routine"],
+    "content": "Feed pets at consistent times to support healthy digestion and behavior. Adjust portions based on activity level and age."
+  },
+  {
+    "id": "kb_medication",
+    "title": "Medication timing",
+    "tags": ["meds", "pill", "insulin", "shot"],
+    "content": "Medication tasks should be scheduled at the same time daily when possible. If a dose is missed, contact your veterinarian."
+  },
+  {
+    "id": "kb_hydration",
+    "title": "Hydration reminders",
+    "tags": ["water", "drink", "hydration"],
+    "content": "Ensure fresh water is available throughout the day. Clean bowls daily to reduce bacteria."
+  },
+  {
+    "id": "kb_grooming",
+    "title": "Grooming basics",
+    "tags": ["groom", "brush", "bath", "nails"],
+    "content": "Short grooming sessions are easier for most pets. Brush in the direction of hair growth and keep sessions calm and brief."
+  },
+  {
+    "id": "kb_enrichment",
+    "title": "Enrichment and play",
+    "tags": ["play", "enrichment", "toy"],
+    "content": "Daily play or enrichment reduces boredom and destructive behavior. Rotate toys to keep interest high."
+  },
+  {
+    "id": "kb_cats_litter",
+    "title": "Litter box care",
+    "tags": ["cat", "litter", "clean"],
+    "content": "Scoop litter boxes daily and fully change litter regularly to reduce odor and stress for cats."
+  },
+  {
+    "id": "kb_rabbits",
+    "title": "Rabbit routine",
+    "tags": ["rabbit", "hay", "pellets"],
+    "content": "Rabbits should have constant access to hay and regular checkups for teeth and nails."
+  }
+]
