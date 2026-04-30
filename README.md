@@ -103,6 +103,10 @@ pytest tests/
 - **[`tests/test_rag_engine.py`](tests/test_rag_engine.py)** — Retrieval, `format_sources`, `validate_citations`.
 - **[`tests/test_rag_eval.py`](tests/test_rag_eval.py)** — Retrieval@3 threshold, deterministic fallback, out-of-scope refusal rate using [`tests/rag_eval_set.json`](tests/rag_eval_set.json).
 
+**Rubric-style summary:** With `pytest tests/`, **71 tests pass** offline (domain, `models.py`, UI helpers/navigation, and RAG). The harness in `test_rag_eval.py` enforces retrieval@≥**0.90** on 12 in-scope questions, deterministic fallback wording (including configured `must_contain_any` tokens), and **out-of-scope refusal** at ≥**0.80** on held-out nonsense queries (`mode == "no_sources"`). Confidence scores are not implemented (the system prefers citation enforcement and deterministic fallbacks). In manual runs, answers can still read generic when the KB is thin for a niche question—exactly why retrieval metrics and citations are tightened.
+
+**Human spot-check:** Before submission, eyeball ~5 AI Coach replies (mix of scheduling context + pure pet-care): confirm **`[Sn]` citations** line up with the numbered sources pane and tone stays cautious (no medical diagnoses). Extend this narrative in **[`claude/doc/evaluation.md`](claude/doc/evaluation.md)** if you record counts or screenshots.
+
 Tests are designed to pass **without** `OPENAI_API_KEY`. For optional live LLM verification, set the key and use the AI Coach manually.
 
 ---
@@ -115,7 +119,7 @@ Building PawPal+ as an **applied AI system** reinforced that **retrieval quality
 
 ## Demo and video walkthrough
 
-- **Screenshots:** [`assets/Demo1.png`](assets/Demo1.png), [`assets/Demo2.png`](assets/Demo2.png).
+- **Screenshots:** Export or capture UI snapshots into [`assets/`](assets/) (for example `Demo1.png`, `Demo2.png`) before submission; naming/export notes live in [`assets/README.md`](assets/README.md).
 - **12-minute presenter script:** [`claude/doc/demo-script.md`](claude/doc/demo-script.md).
 
 **Course Loom requirement:** Add your recording link once available:
@@ -128,9 +132,7 @@ Loom: (paste URL here — show end-to-end run, AI Coach, and guardrail/fallback 
 
 ## System architecture
 
-**Class-centric view (exported UML):**
-
-[![PawPal UML](assets/uml_final.png)](assets/uml_final.png)
+**Class-centric diagram (flat image optional):** If your grader expects a PNG, export from **[`uml_diagram.md`](uml_diagram.md)** or Mermaid Live Editor and commit as `assets/uml_diagram.png`; until then treat **[`uml_diagram.md`](uml_diagram.md)** plus [`claude/doc/architecture.md`](claude/doc/architecture.md) as the source diagrams.
 
 **Layered runtime view:** Data flows **user → Streamlit (`app.py` + `ui/`) → domain (`pawpal_system`) OR RAG (`rag_engine`) → JSON / logs.** The domain stack does **not** import Streamlit or the RAG layer; the UI stitches schedule context into questions. Full Mermaid diagrams, dependency rules, and sequences: **[`claude/doc/architecture.md`](claude/doc/architecture.md)**.
 
@@ -213,9 +215,9 @@ pytest tests/
 
 ## Documentation index
 
-| Doc | Role |
-|-----|------|
-| [`README.md`](README.md) | This file — setup, architecture summary, samples, testing |
-| [`model_card.md`](model_card.md) | Model/ethics card for submission |
-| [`reflection.md`](reflection.md) | Design and collaboration reflection |
-| [`claude/doc/README.md`](claude/doc/README.md) | Full planning bundle index |
+| Doc                                            | Role                                                      |
+| ---------------------------------------------- | --------------------------------------------------------- |
+| [`README.md`](README.md)                       | This file — setup, architecture summary, samples, testing |
+| [`model_card.md`](model_card.md)               | Model/ethics card for submission                          |
+| [`reflection.md`](reflection.md)               | Design and collaboration reflection                       |
+| [`claude/doc/README.md`](claude/doc/README.md) | Full planning bundle index                                |

@@ -1,7 +1,18 @@
-# `/assets`
+# Assets Guide
 
-Screenshots, exported diagrams, or other **static images** for the README, submissions, and presentations.
+This folder stores submission and demo visuals for PawPal+.
 
-Put whatever filenames you use here (`Demo1.png`, `Demo2.png`, `uml_final.png`, etc.) and link them from [`README.md`](../README.md). **You own** capturing or exporting images when you finalize the submission.
+Current files:
 
-Diagram **sources** live in the repo as Markdown + Mermaid — for example [`claude/doc/architecture.md`](../claude/doc/architecture.md) (layered view) and [`uml_diagram.md`](../uml_diagram.md) (class view). No extra steps are required in code; export to PNG only if your grader or portfolio needs a flat image.
+- `Demo1.png` - primary app screenshot
+- `Demo2.png` - AI Coach screenshot
+- `uml_diagram.png` - class/domain diagram export from `uml_diagram.md`
+- `uml_rag.png` - RAG flow diagram export from `uml_rag.md`
+
+Recommended workflow:
+
+1. Keep filenames lowercase with underscores for consistency.
+2. Regenerate diagram PNGs from the Mermaid sources when architecture changes:
+   - `uml_diagram.md` -> `assets/uml_diagram.png`
+   - `uml_rag.md` -> `assets/uml_rag.png`
+3. Replace screenshots in place so README links stay stable.

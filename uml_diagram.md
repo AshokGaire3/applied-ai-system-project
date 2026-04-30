@@ -1,7 +1,11 @@
-# PawPal+ — Mermaid.js Class Diagram
+# PawPal+ — Class diagram (for `uml_diagram.png`)
 
+This diagram reflects **`pawpal_system.py`** (`Task`, `Pet`, `Owner`, `Scheduler`).
+
+**Export for submission:** Copy only the fenced block below into **[Mermaid Live Editor](https://mermaid.live/)** -> Actions -> **Export PNG** -> save as `assets/uml_diagram.png`.
+
+```mermaid
 classDiagram
-
     class Task {
         +str description
         +int duration_minutes
@@ -64,8 +68,9 @@ classDiagram
         -_hhmm_to_min(hhmm) int
     }
 
-    Owner "1" *-- "0..*" Pet   : owns
-    Pet   "1" *-- "0..*" Task  : has
-    Scheduler "1" --> "1" Owner  : schedules for
-    Scheduler ..> Pet            : reads via Owner
-    Scheduler ..> Task           : reads via Pet
+    Owner "1" *-- "0..*" Pet : owns
+    Pet "1" *-- "0..*" Task : has
+    Scheduler "1" --> "1" Owner : schedules for
+    Scheduler ..> Pet : reads via Owner
+    Scheduler ..> Task : reads via Pet
+```

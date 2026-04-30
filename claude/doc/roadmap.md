@@ -17,7 +17,7 @@ Every line below traces a [instruction.md](../../instruction.md) requirement to 
 |---|------------------------------------------------------------------|--------|----------------|
 | 1 | Identify base project (Module 1–3) and 2–3 sentence summary | DONE | [README.md](../../README.md) **Base project** + **What changed** |
 | 2 | Title + summary | DONE | [README.md](../../README.md) lead + scenario |
-| 3 | Architecture overview + system diagram | DONE ([`claude/doc/architecture.md`](claude/doc/architecture.md) Mermaid; optional PNGs under `assets/`) | [architecture.md](architecture.md), [assets/README.md](../../assets/README.md) |
+| 3 | Architecture overview + system diagram | DONE ([`claude/doc/architecture.md`](claude/doc/architecture.md) Mermaid; optional PNGs under `assets/`) | [architecture.md](architecture.md), [`assets/`](../../assets/) |
 | 4 | Setup instructions | DONE | [README.md](../../README.md) "Getting started" |
 | 5 | Sample interactions (2–3 inputs + outputs) | DONE | [README.md](../../README.md) **Sample interactions (AI Coach)** |
 | 6 | Design decisions + trade-offs | DONE | [README.md](../../README.md); [reflection.md](../../reflection.md); [roadmap.md](roadmap.md) §5 |
@@ -29,9 +29,9 @@ Every line below traces a [instruction.md](../../instruction.md) requirement to 
 | 12 | Logging or guardrails | DONE | `logs/ai.log`, [risks-guardrails.md](risks-guardrails.md) |
 | 13 | Reproducibility (`pip install -r requirements.txt` works) | DONE | [requirements.txt](../../requirements.txt) |
 | 14 | `model_card.md` for reflection prompts | DONE | [model_card.md](../../model_card.md) |
-| 15 | System architecture diagram (image or embedded Mermaid) | DONE (Mermaid in docs; PNG in `assets/` optional) | [architecture.md](architecture.md), [`assets/`](../../assets/README.md) |
+| 15 | System architecture diagram (image or embedded Mermaid) | DONE (Mermaid in docs; PNG in `assets/` optional) | [architecture.md](architecture.md), [`assets/`](../../assets/) |
 | 16 | Loom video walkthrough link in README | TODO | record after final code freeze; embed in [README.md](../../README.md) |
-| 17 | Organized assets in `/assets` or `/diagrams` | DONE (`assets/`; author adds images) | [assets/README.md](../../assets/README.md) |
+| 17 | Organized assets in `/assets` or `/diagrams` | DONE (`assets/`; author adds images) | [`assets/`](../../assets/) |
 | 18 | Multiple meaningful commits in git history | DONE | git log |
 | 19 | Public repo on GitHub | TODO (verify) | repo settings |
 
@@ -127,7 +127,7 @@ flowchart LR
 
 - [x] Final-project framing in [`README.md`](../../README.md) (base project, interactions, testing, reflection pointer).
 - [x] [`model_card.md`](../../model_card.md) with rubric §5 prompts.
-- [ ] Add your own **`assets/`** images when you finalize the submission — see [`assets/README.md`](../../assets/README.md).
+- [ ] Add your own **`assets/`** images when you finalize the submission — see [`assets/`](../../assets/).
 - [ ] Record the Loom walkthrough following [`demo-script.md`](demo-script.md); add URL to [`README.md`](../../README.md).
 - [ ] Verify repo is public and push final commits.
 
