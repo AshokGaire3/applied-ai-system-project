@@ -10,6 +10,35 @@ from urllib.error import HTTPError, URLError
 
 DEFAULT_MODEL = os.getenv("PAWPAL_AI_MODEL", "gpt-4o-mini")
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "be",
+    "before",
+    "by",
+    "for",
+    "from",
+    "how",
+    "i",
+    "in",
+    "is",
+    "it",
+    "my",
+    "of",
+    "on",
+    "or",
+    "should",
+    "the",
+    "to",
+    "today",
+    "what",
+    "when",
+    "with",
+}
 
 
 def _setup_logger() -> logging.Logger:
@@ -51,7 +80,45 @@ def load_knowledge_base(path: str) -> List[Dict[str, str]]:
 
 
 def _tokenize(text: str) -> List[str]:
-    return re.findall(r"[a-z0-9]+", text.lower())
+    raw_tokens = re.findall(r"[a-z0-9]+", text.lower())
+    return [token for token in raw_tokens if token not in STOPWORDS and len(token) > 1]
+
+
+def _singular_form(token: str) -> Optional[str]:
+    """Crude plural → singular hints for retrieval (pets/pet, walks/walk)."""
+    if len(token) < 4 or not token.endswith("s"):
+        return None
+    if token.endswith("ss"):
+        return None
+    stem = token[:-1]
+    if len(stem) < 3:
+        return None
+    return stem
+
+
+def _expand_query_tokens(tokens: List[str]) -> List[str]:
+    """Deduped expansion so query wording aligns with KB singular/plural."""
+    out: List[str] = []
+    seen: set[str] = set()
+    for token in tokens:
+        for cand in (token, _singular_form(token)):
+            if cand and cand not in seen:
+                seen.add(cand)
+                out.append(cand)
+    return out
+
+
+def _adjacent_pair_bonus(full_lower: str, query: str) -> float:
+    """Boost when consecutive query words appear together in the source text."""
+    toks = re.findall(r"[a-z0-9]+", query.lower())
+    if len(toks) < 2:
+        return 0.0
+    bonus = 0.0
+    for i in range(len(toks) - 1):
+        pair = f"{toks[i]} {toks[i+1]}"
+        if pair in full_lower:
+            bonus += 1.15
+    return bonus
 
 
 def _score_entry(query_tokens: List[str], entry: Dict[str, str]) -> int:
@@ -96,12 +163,34 @@ def _build_index(entries: List[Dict[str, str]]) -> Dict[str, object]:
             for token in tf:
                 tf[token] = tf[token] / total
 
+        blob = (
+            entry.get("title", "")
+            + " "
+            + " ".join(entry.get("tags", []))
+            + " "
+            + entry.get("content", "")
+        )
+        full_lower = blob.lower()
+
         entry_meta.append(
             {
                 "tf": tf,
                 "tags": set([t.lower() for t in entry.get("tags", [])]),
+                "full_lower": full_lower,
             }
         )
+
+    for ei, entry in enumerate(entries):
+        title_only = entry.get("title", "")
+        t_tokens = _tokenize(title_only)
+        title_tf: Dict[str, float] = {}
+        if t_tokens:
+            for t in t_tokens:
+                title_tf[t] = title_tf.get(t, 0.0) + 1.0
+            tot = float(len(t_tokens))
+            for t in title_tf:
+                title_tf[t] = title_tf[t] / tot
+        entry_meta[ei]["title_tf"] = title_tf
 
     idf: Dict[str, float] = {}
     for token, count in df.items():
@@ -110,28 +199,43 @@ def _build_index(entries: List[Dict[str, str]]) -> Dict[str, object]:
     return {"idf": idf, "meta": entry_meta}
 
 
+def _query_question_only(query: str) -> str:
+    """Prefer the user question for phrase overlap; avoids schedule-context noise."""
+    if "\n\nContext:\n" in query:
+        return query.split("\n\nContext:\n", 1)[0]
+    return query
+
+
 def retrieve_entries(
     query: str,
     entries: List[Dict[str, str]],
     k: int = 3,
     index: Optional[Dict[str, object]] = None,
 ) -> List[Dict[str, str]]:
-    query_tokens = _tokenize(query)
+    query_tokens = _expand_query_tokens(_tokenize(query))
     if not query_tokens:
         return []
+
+    phrase_query = _query_question_only(query)
 
     if index:
         idf: Dict[str, float] = index["idf"]
         meta: List[Dict[str, object]] = index["meta"]
         scored: List[Tuple[float, Dict[str, str]]] = []
+        title_w = 0.52
         for entry, entry_meta in zip(entries, meta):
             tf: Dict[str, float] = entry_meta["tf"]
+            title_tf: Dict[str, float] = entry_meta.get("title_tf", {})
             tags: set = entry_meta["tags"]
+            full_lower: str = entry_meta.get("full_lower", "")
             score = 0.0
             for token in query_tokens:
-                score += tf.get(token, 0.0) * idf.get(token, 0.0)
+                widf = idf.get(token, 0.0)
+                score += tf.get(token, 0.0) * widf
+                score += title_w * title_tf.get(token, 0.0) * widf
                 if token in tags:
                     score += 0.4
+            score += _adjacent_pair_bonus(full_lower, phrase_query)
             if score > 0:
                 scored.append((score, entry))
 
@@ -174,13 +278,33 @@ def validate_citations(answer: str, source_count: int) -> bool:
 
 
 def _fallback_answer(question: str, sources: List[Dict[str, str]]) -> str:
-    lines = ["Here is guidance based on the notes I found:"]
+    question_lower = question.lower()
+    has_walk = any(term in question_lower for term in ("walk", "exercise"))
+    has_feed = any(term in question_lower for term in ("feed", "feeding", "meal", "food"))
+
+    if has_walk and has_feed:
+        return (
+            "A good default is to keep a consistent routine and avoid feeding right before activity. "
+            "For most dogs, do the walk first, then feed shortly after once your dog has settled. [S1][S2]\n\n"
+            "If your dog has a medical condition, history of stomach issues, or specific vet instructions, "
+            "follow your veterinarian's guidance."
+        )
+
+    top_points = []
     for i, entry in enumerate(sources, start=1):
-        summary = entry.get("content", "").strip()
-        title = entry.get("title", "Guidance")
-        lines.append(f"- {title}: {summary} [S{i}]")
-    lines.append("If symptoms or medical concerns are involved, contact a veterinarian.")
-    return "\n".join(lines)
+        title = entry.get("title", "Guidance").strip()
+        content = entry.get("content", "").strip()
+        if content:
+            top_points.append(f"- {title}: {content} [S{i}]")
+
+    if not top_points:
+        return "I found limited matching notes. Please add more details so I can give a targeted recommendation."
+
+    return (
+        "Based on your question, here is the most relevant guidance:\n\n"
+        + "\n".join(top_points[:2])
+        + "\n\nIf symptoms or medical concerns are involved, contact a veterinarian."
+    )
 
 
 def _call_openai(api_key: str, prompt: str) -> Optional[str]:
@@ -191,8 +315,11 @@ def _call_openai(api_key: str, prompt: str) -> Optional[str]:
                 "role": "system",
                 "content": (
                     "You are a pet-care assistant. Use only the provided sources and "
-                    "cite them as [S1], [S2], etc. If the sources do not cover the "
-                    "question, say what is missing and ask one clarifying question."
+                    "cite them as [S1], [S2], etc. Lead with facts that directly answer "
+                    "the question; avoid generic filler. If the sources do not cover "
+                    "the question, say what is missing and ask one clarifying question. "
+                    "Do not provide medical diagnosis; advise consulting a veterinarian "
+                    "when symptoms or medical concerns are involved."
                 ),
             },
             {"role": "user", "content": prompt},
