@@ -2,49 +2,97 @@
   {
     "id": "kb_walks",
     "title": "Daily walks and exercise",
-    "tags": ["dog", "walk", "exercise"],
-    "content": "Most dogs benefit from at least two walks per day. Short, consistent walks reduce stress and help with digestion."
+    "tags": ["dog", "walk", "exercise", "routine"],
+    "content": "Most healthy dogs benefit from at least two walks per day plus chances to sniff and potty. Match length and pace to breed, age, and heat: skip hard exercise in hot weather or right after large meals unless your vet clears it. Short, consistent walks reduce stress and help with digestion compared to occasional very long outings. Paw care: rinse feet after salted roads or hiking, and trim nails routinely so gait stays comfortable. If lameness, heavy panting, or collapse occurs, pause activity and seek veterinary advice."
   },
   {
     "id": "kb_feeding",
     "title": "Consistent feeding times",
-    "tags": ["feed", "meal", "routine"],
-    "content": "Feed pets at consistent times to support healthy digestion and behavior. Adjust portions based on activity level and age."
+    "tags": ["feed", "meal", "routine", "portion"],
+    "content": "Feed pets at consistent times to stabilize digestion and reduce begging or anxiety around food. Feeding at the same time every day is usually better than random bowls left down all day: predictable meals align potty cues for dogs and appetite rhythms for cats. Measuring scoops matters: use kitchen scales periodically so portions stay honest. Meal portions naturally change with activity level and age—puppies, kittens, lactating moms, or working dogs often need more frequent or larger meals than sedentary adults. Seniors may need softer food or arthritis-friendly bowls. Separate pets at meals if guarding appears. Sudden appetite changes, vomiting, or weight swings warrant calling your veterinarian."
   },
   {
     "id": "kb_medication",
     "title": "Medication timing",
-    "tags": ["meds", "pill", "insulin", "shot"],
-    "content": "Medication tasks should be scheduled at the same time daily when possible. If a dose is missed, contact your veterinarian."
+    "tags": ["meds", "pill", "insulin", "shot", "schedule"],
+    "content": "Medication doses should be scheduled for a fixed time each day when possible and tied to a calendar or app reminder alongside food if your label allows. For a daily pill, ask your vet whether it needs to be given with meals or on an empty stomach. If a medication dose is missed, follow label instructions when available; never double up unless the veterinary team tells you it is safe. Store meds out of paws’ reach at proper temperature and track refills before holidays or storms."
   },
   {
     "id": "kb_hydration",
     "title": "Hydration reminders",
-    "tags": ["water", "drink", "hydration"],
-    "content": "Ensure fresh water is available throughout the day. Clean bowls daily to reduce bacteria."
+    "tags": ["water", "drink", "hydration", "bowl"],
+    "content": "Ensure fresh water is available throughout the day in wide, stable bowls. Offer extra water bowls when it is warm, after hikes, or on dry-food-heavy diets where pets drink less per bite than on wet diets. Ceramic or stainless bowls hold less odor than chipped plastic—clean bowls daily to reduce slime and bacteria. Watch for lethargy, tacky gums, or dark urine—these merit prompt veterinary evaluation for dehydration versus other illness."
   },
   {
     "id": "kb_grooming",
     "title": "Grooming basics",
-    "tags": ["groom", "brush", "bath", "nails"],
-    "content": "Short grooming sessions are easier for most pets. Brush in the direction of hair growth and keep sessions calm and brief."
+    "tags": ["groom", "brush", "bath", "nails", "coat"],
+    "content": "Short grooming sessions are easier for anxious pets—cap each session around five focused minutes plus treats. Brush in the direction of hair growth, working out small mats gently before baths. Bath schedules depend on coat; over-bathing dries skin unless your vet advises medicated washes. Nail trims weekly or biweekly beats rare deep trims that cause fear. Inspect ears gently for odor or discharge; paws for cracks or foxtails seasonally."
   },
   {
     "id": "kb_enrichment",
     "title": "Enrichment and play",
-    "tags": ["play", "enrichment", "toy"],
-    "content": "Daily play or enrichment reduces boredom and destructive behavior. Rotate toys to keep interest high."
+    "tags": ["play", "enrichment", "toy", "mental"],
+    "content": "Daily play or enrichment reduces boredom and chewing or vocalizing from understimulation. Alternate toys by theme—puzzle feeders, flirt poles outdoors, tug with rules, or calm nosework indoors on bad-weather days. Rotate toys to keep interest high and retire broken pieces that could splinter. Match intensity to health: brachycephalic breeds overheat quickly. End sessions while your pet is still eager so the next session stays positive."
   },
   {
     "id": "kb_cats_litter",
     "title": "Litter box care",
-    "tags": ["cat", "litter", "clean"],
-    "content": "Scoop litter boxes daily and fully change litter regularly to reduce odor and stress for cats."
+    "tags": ["cat", "litter", "clean", "box"],
+    "content": "Scoop litter boxes daily and fully change litter regularly to reduce odor and stress for cats. Rule of thumb: one box per cat plus one extra, placed in quiet pass-through areas away from loud appliances. Sudden litter avoidance can signal pain, stress, or urinary emergencies—don’t wait if straining, blood, or vocalizing appears. Use unscented clumping litters when switching types, changing gradually over a week so cats stay consistent."
   },
   {
     "id": "kb_rabbits",
     "title": "Rabbit routine",
-    "tags": ["rabbit", "hay", "pellets"],
-    "content": "Rabbits should have constant access to hay and regular checkups for teeth and nails."
+    "tags": ["rabbit", "hay", "pellets", "fiber"],
+    "content": "Rabbits should have constant access to unlimited timothy hay for dental wear and digestion; hay should always have access in racks that stay clean of urine. Balance limited pellets plus leafy greens suited to rabbits per your veterinarian’s sheet—avoid sudden diet swings. Houses need hiding spaces, chewing outlets, and room to hop safely. Routine checkups should cover molars trimming needs, parasite plans, and nail length."
+  },
+  {
+    "id": "kb_preventive_vet",
+    "title": "Preventive veterinary visits",
+    "tags": ["vet", "vaccine", "wellness", "exam"],
+    "content": "Adult pets commonly need yearly wellness exams; puppies, kittens, and seniors may need cadence tailored by your veterinarian. Visits bundle weight trends, vaccine updates, parasite control, oral checks, and early screens for lumps or pain behaviors you might miss at home. Bring fecal samples when asked and a list of food plus supplements. Scheduling routine visits avoids emergency-only care which is taxing and costly."
+  },
+  {
+    "id": "kb_parasite_prevention",
+    "title": "Fleas, ticks, and heartworm basics",
+    "tags": ["flea", "tick", "heartworm", "parasite"],
+    "content": "Use species-appropriate preventives on the schedule your veterinary team prescribes—dog products are not interchangeable with cats. Check for ticks after hikes, especially around ears and between toes. Heartworm risk depends on region and travel; missing months can leave gaps in protection. If you see tapeworm segments or intense scratching, call the clinic—over-the-counter baths alone rarely fix infestations."
+  },
+  {
+    "id": "kb_positive_training",
+    "title": "Positive reinforcement training",
+    "tags": ["training", "reward", "cue", "behavior"],
+    "content": "Train new cues with short reps, high-value treats, and release markers so pets know when they succeeded. Ignore mild unwanted attention-seeking when safe, and reward calm default behaviors like lying on a mat. Pair loud cues with distance from triggers if your pet is fearful—never punish growls; they are information. For aggression or bite risk, work with a credentialed trainer who uses humane methods plus your veterinarian’s behavior plan."
+  },
+  {
+    "id": "kb_travel_carrier",
+    "title": "Travel and carriers",
+    "tags": ["travel", "carrier", "car", "crate"],
+    "content": "Carriers should allow standing, turning, and lying down with secure latches; acclimate at home with meals inside before long trips. Restrain pets in back seats using crash-tested harnesses or hard carriers—loose pets become projectiles. Offer water at pit stops, never leave animals in parked cars on warm days, and keep medications plus a copy of vaccine records when crossing borders or borders between states with entry rules."
+  },
+  {
+    "id": "kb_weather_safety",
+    "title": "Hot and cold weather safety",
+    "tags": ["heat", "cold", "shade", "pavement"],
+    "content": "Heat risk rises with humidity, obesity, airway issues, or midday sun; walk at dawn or dusk and carry water. Asphalt hotter than air can burn paw pads—test with your palm. Signs like drooling without exercise, vomiting, weakness, or collapse are emergencies. In cold climates, shorten walks for small or thin-coated pets and rinse road salt paws. Outdoor cats need insulated shelter and antifreeze vigilance—in even tiny amounts antifreeze can be lethal."
+  },
+  {
+    "id": "kb_pet_introductions",
+    "title": "Introducing pets to each other",
+    "tags": ["introduction", "new", "household", "separate"],
+    "content": "New introductions go best slowly: odor swaps, visual barriers, then supervised micro-meetings ending on calm notes—not chaos. Separate resources (food puzzles, rests, potty spots) lowers tension. Cats often need vertically rich escape routes away from exuberant dogs. If fights draw blood or fear shuts down appetite, pause the plan and get professional guidance—the goal is gradual confidence, not endurance tests."
+  },
+  {
+    "id": "kb_dental_home",
+    "title": "Home dental care",
+    "tags": ["teeth", "dental", "brush", "tartar"],
+    "content": "Daily brushing with pet-safe paste beats occasional marathon sessions introduced too fast. Alternate starting with toothpaste on gum rubs until your pet accepts a soft brush angled at the gumline. VOHC-approved chews complement brushing but skip rock-hard bones that crack teeth or splinter gums. Truly foul breath paired with redness or pawing the mouth warrants a dental evaluation rather than masking with mint treats."
+  },
+  {
+    "id": "kb_id_recovery",
+    "title": "ID tags and recovery prep",
+    "tags": ["microchip", "collar", "lost", "id"],
+    "content": "Pair a snug collar ID with a registered microchip updated after moves or phone changes; tags should list a reachable mobile number—not just the pet name. Carry a crisp photo yearly for lost-pet flyers. Practice reliable recalls in safe fenced areas BEFORE doors open on moving day or parties. Neighborhood apps work better when timelines and photos arrive within the first golden hours after an escape."
   }
 ]

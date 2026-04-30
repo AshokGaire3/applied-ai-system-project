@@ -3,13 +3,21 @@ import logging
 import math
 import os
 import re
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from urllib import request
 from urllib.error import HTTPError, URLError
 
 
-DEFAULT_MODEL = os.getenv("PAWPAL_AI_MODEL", "gpt-4o-mini")
-OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+def _default_chat_model() -> str:
+    return os.getenv("PAWPAL_AI_MODEL", "gpt-4o-mini")
+
+
+def _openai_chat_url() -> str:
+    base = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+    return f"{base}/chat/completions"
+
+
 STOPWORDS = {
     "a",
     "an",
@@ -56,21 +64,24 @@ def _setup_logger() -> logging.Logger:
 
 
 def _load_env_file(path: str = ".env") -> None:
-    if not os.path.exists(path):
-        return
-
-    with open(path, "r") as f:
-        for line in f:
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            if "=" not in stripped:
-                continue
-            key, value = stripped.split("=", 1)
-            key = key.strip()
-            value = value.strip().strip("\"").strip("'")
-            if key and key not in os.environ:
-                os.environ[key] = value
+    """Load `.env` from process cwd first, then next to rag_engine.py (Streamlit cwd safe)."""
+    for base in (Path.cwd(), Path(__file__).resolve().parent):
+        candidate = base / path
+        if not candidate.is_file():
+            continue
+        with open(candidate, "r", encoding="utf-8") as f:
+            for line in f:
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+                if "=" not in stripped:
+                    continue
+                key, value = stripped.split("=", 1)
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+        break
 
 
 def load_knowledge_base(path: str) -> List[Dict[str, str]]:
@@ -206,6 +217,291 @@ def _query_question_only(query: str) -> str:
     return query
 
 
+_FEEDING_IDS = frozenset({"kb_feeding", "kb_medication"})
+_FEEDING_TAG_NEEDLES = frozenset({"feed", "meal", "portion", "insulin"})
+_TITLE_FEEDING_NEEDLES = (
+    "feeding",
+    "feed ",
+    " meal",
+    "medication timing",
+)
+
+
+def _score_tuple_sort_key(indexed: Tuple[float, Dict[str, str]]) -> Tuple[float, str]:
+    return (indexed[0], indexed[1].get("id") or "")
+
+
+def _wants_feeding_focus(question_lower: str) -> bool:
+    """True when the user is primarily asking about meals or feeding time."""
+    if ("portion" in question_lower or "portions" in question_lower) and any(
+        m in question_lower for m in ("meal", "feed", "food", "eating")
+    ):
+        return True
+    if any(
+        needle in question_lower
+        for needle in (
+            "feed ",
+            " feeding",
+            "feed my",
+            "feed my pet",
+            "feed the",
+            "meal time",
+            "mealtime",
+            "when to eat",
+            "eating schedule",
+            "food schedule",
+            "best time to feed",
+        )
+    ):
+        return True
+    tokens = question_lower.replace("?", " ").split()
+    if "feed" in tokens or question_lower.endswith("feed") or " feed" in question_lower:
+        return "time" in question_lower or any(
+            q in question_lower for q in ("when", "should i", "recommend")
+        )
+    return False
+
+
+def _entry_feeding_adjacent(entry: Dict[str, str]) -> bool:
+    """KB rows that genuinely discuss feeding, meals, or med timing with food."""
+    eid = entry.get("id", "")
+    if eid in _FEEDING_IDS:
+        return True
+    tags = {t.lower() for t in entry.get("tags", [])}
+    if tags & _FEEDING_TAG_NEEDLES:
+        return True
+    title_low = entry.get("title", "").lower()
+    return any(needle in title_low for needle in _TITLE_FEEDING_NEEDLES)
+
+
+_HYDRATION_IDS = frozenset({"kb_hydration"})
+_HYDRATION_TAG_NEEDLES = frozenset({"water", "drink", "hydration"})
+
+
+def _hydration_question_is_cat(question_lower: str) -> bool:
+    if re.search(
+        r"\b(?:cat|cats|kitten|kittens|feline|felines)\b",
+        question_lower,
+    ):
+        return True
+    return bool(
+        "litter box" in question_lower
+        or "litter tray" in question_lower
+        or " for cats" in question_lower
+    )
+
+
+def _wants_hydration_focus(question_lower: str) -> bool:
+    if re.search(r"\bwater\b", question_lower):
+        return True
+    return any(
+        needle in question_lower
+        for needle in (
+            "hydrat",
+            "hydration",
+            "water bowl",
+            "water bowls",
+            "drinking",
+            "thirst",
+            "dehydrat",
+            " thirsty",
+            "water intake",
+        )
+    )
+
+
+def _entry_hydration_adjacent(entry: Dict[str, str], cat_specific: bool) -> bool:
+    if entry.get("id") in _HYDRATION_IDS:
+        return True
+    tags = {t.lower() for t in entry.get("tags", [])}
+    if tags & _HYDRATION_TAG_NEEDLES:
+        return True
+    if cat_specific and entry.get("id") == "kb_cats_litter":
+        return True
+    return False
+
+
+def _wants_litter_focus(question_lower: str) -> bool:
+    return bool(re.search(r"\blitter\b", question_lower))
+
+
+def _entry_litter_adjacent(entry: Dict[str, str]) -> bool:
+    return entry.get("id") == "kb_cats_litter"
+
+
+def _wants_medication_focus(question_lower: str) -> bool:
+    if "missed dose" in question_lower or "miss a dose" in question_lower:
+        return True
+    return bool(
+        re.search(
+            r"\b(pills?|medicine|medications?|meds|insulin|injection|inject|shots?)\b",
+            question_lower,
+        )
+    )
+
+
+def _wants_medication_dose_keyword(question_lower: str) -> bool:
+    """Avoid treating standalone 'dose' (e.g. preventive doses) as prescription-med intent."""
+    if "dose" not in question_lower and "dosage" not in question_lower:
+        return False
+    return bool(
+        re.search(
+            r"\b(pills?|medicine|medications?|meds|insulin|prescription)\b",
+            question_lower,
+        )
+        or "missed dose" in question_lower
+        or "miss a dose" in question_lower
+    )
+
+
+def _entry_medication_adjacent(entry: Dict[str, str]) -> bool:
+    if entry.get("id") == "kb_medication":
+        return True
+    tags = {t.lower() for t in entry.get("tags", [])}
+    return bool(tags & {"meds", "pill", "insulin", "shot"})
+
+
+def _wants_walk_exercise_focus(question_lower: str) -> bool:
+    if _wants_feeding_focus(question_lower):
+        return False
+    if re.search(r"\b(walks?|walking|hike|hiking)\b", question_lower):
+        return True
+    if "exercise" in question_lower:
+        return bool(re.search(r"\b(dog|puppy|puppies)\b", question_lower)) and (
+            "enrichment" not in question_lower
+        )
+    return False
+
+
+def _entry_walk_exercise_adjacent(entry: Dict[str, str]) -> bool:
+    return entry.get("id") == "kb_walks"
+
+
+def _wants_grooming_focus(question_lower: str) -> bool:
+    needles = ("groom", "grooming", "brush", "brushing", "bathing", "bath ", "nail trim")
+    return any(n in question_lower for n in needles)
+
+
+def _entry_grooming_adjacent(entry: Dict[str, str]) -> bool:
+    return entry.get("id") == "kb_grooming"
+
+
+def _wants_dental_focus(question_lower: str) -> bool:
+    return any(n in question_lower for n in ("dental", "teeth", "tooth brushing", "tartar"))
+
+
+def _entry_dental_adjacent(entry: Dict[str, str]) -> bool:
+    return entry.get("id") == "kb_dental_home"
+
+
+def _wants_rabbit_focus(question_lower: str) -> bool:
+    return bool(
+        re.search(r"\b(rabbit|rabbits|bunny|bunnies)\b", question_lower)
+    )
+
+
+def _entry_rabbit_adjacent(entry: Dict[str, str]) -> bool:
+    if entry.get("id") == "kb_rabbits":
+        return True
+    return "rabbit" in {t.lower() for t in entry.get("tags", [])}
+
+
+def _wants_enrichment_focus(question_lower: str) -> bool:
+    return any(
+        w in question_lower
+        for w in (
+            "enrichment",
+            "bored",
+            "boredom",
+            "mental stimulation",
+            "puzzle feeder",
+            "destructive behavior",
+            "destructive behaviour",
+        )
+    )
+
+
+def _entry_enrichment_adjacent(entry: Dict[str, str]) -> bool:
+    return entry.get("id") == "kb_enrichment"
+
+
+def _maybe_drop_weak_tertiary_hit(
+    scored: List[Tuple[float, Dict[str, str]]],
+) -> List[Tuple[float, Dict[str, str]]]:
+    """If #3 scores far below #1, it is often lexical noise rather than topical support."""
+    if len(scored) < 3:
+        return scored
+    best = scored[0][0]
+    if best <= 0:
+        return scored
+    if float(scored[2][0]) < float(best) * 0.33:
+        return scored[:2]
+    return scored
+
+
+def _apply_intent_narrowing(
+    query: str,
+    ranked: List[Dict[str, str]],
+    k: int,
+) -> List[Dict[str, str]]:
+    ql = _query_question_only(query).strip().lower()
+    wants_feed = _wants_feeding_focus(ql)
+    wants_water = _wants_hydration_focus(ql)
+
+    if wants_feed and wants_water:
+        cats = _hydration_question_is_cat(ql)
+        filt = [
+            e
+            for e in ranked
+            if _entry_feeding_adjacent(e) or _entry_hydration_adjacent(e, cats)
+        ]
+        if filt:
+            return filt[:k]
+    elif wants_feed:
+        filt = [e for e in ranked if _entry_feeding_adjacent(e)]
+        if filt:
+            return filt[:k]
+    elif wants_water:
+        cats = _hydration_question_is_cat(ql)
+        filt = [e for e in ranked if _entry_hydration_adjacent(e, cats)]
+        if filt:
+            return filt[:k]
+
+    if _wants_litter_focus(ql):
+        filt = [e for e in ranked if _entry_litter_adjacent(e)]
+        if filt:
+            return filt[:k]
+    if _wants_rabbit_focus(ql):
+        filt = [e for e in ranked if _entry_rabbit_adjacent(e)]
+        if filt:
+            return filt[:k]
+    if _wants_enrichment_focus(ql):
+        filt = [e for e in ranked if _entry_enrichment_adjacent(e)]
+        if filt:
+            return filt[:k]
+    wants_rx_med = _wants_medication_focus(ql) or _wants_medication_dose_keyword(
+        ql
+    )
+    if wants_rx_med and not wants_feed:
+        filt = [e for e in ranked if _entry_medication_adjacent(e)]
+        if filt:
+            return filt[:k]
+    if _wants_walk_exercise_focus(ql):
+        filt = [e for e in ranked if _entry_walk_exercise_adjacent(e)]
+        if filt:
+            return filt[:k]
+    if _wants_dental_focus(ql):
+        filt = [e for e in ranked if _entry_dental_adjacent(e)]
+        if filt:
+            return filt[:k]
+    if _wants_grooming_focus(ql):
+        filt = [e for e in ranked if _entry_grooming_adjacent(e)]
+        if filt:
+            return filt[:k]
+
+    return ranked[:k]
+
+
 def retrieve_entries(
     query: str,
     entries: List[Dict[str, str]],
@@ -239,8 +535,10 @@ def retrieve_entries(
             if score > 0:
                 scored.append((score, entry))
 
-        scored.sort(key=lambda item: item[0], reverse=True)
-        return [entry for _, entry in scored[:k]]
+        scored.sort(key=_score_tuple_sort_key, reverse=True)
+        scored = _maybe_drop_weak_tertiary_hit(scored)
+        ranked = [entry for _, entry in scored]
+        return _apply_intent_narrowing(query, ranked, k)
 
     scored: List[Tuple[int, Dict[str, str]]] = []
     for entry in entries:
@@ -248,8 +546,36 @@ def retrieve_entries(
         if score > 0:
             scored.append((score, entry))
 
-    scored.sort(key=lambda item: item[0], reverse=True)
-    return [entry for _, entry in scored[:k]]
+    scored.sort(key=_score_tuple_sort_key, reverse=True)
+    scored = _maybe_drop_weak_tertiary_hit(scored)
+    ranked = [entry for _, entry in scored]
+    return _apply_intent_narrowing(query, ranked, k)
+
+
+def _is_walk_feed_meal_timing_question(question_lower: str) -> bool:
+    has_walk = any(term in question_lower for term in ("walk", "exercise", "hike", "hiking"))
+    has_feed = any(term in question_lower for term in ("feed", "feeding", "meal", "food"))
+    return bool(has_walk and has_feed)
+
+
+def _resolve_entries_by_ids(
+    entries: List[Dict[str, str]],
+    ids_in_order: List[str],
+) -> List[Dict[str, str]]:
+    by_id = {entry.get("id"): entry for entry in entries}
+    resolved: List[Dict[str, str]] = []
+    for eid in ids_in_order:
+        match = by_id.get(eid)
+        if match is not None:
+            resolved.append(match)
+    return resolved
+
+
+def _sources_meta(entries: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    meta: List[Dict[str, str]] = []
+    for i, entry in enumerate(entries, start=1):
+        meta.append({"label": f"S{i}", "title": entry.get("title", "Untitled")})
+    return meta
 
 
 def format_sources(entries: List[Dict[str, str]]) -> Tuple[str, List[Dict[str, str]]]:
@@ -277,39 +603,49 @@ def validate_citations(answer: str, source_count: int) -> bool:
     return True
 
 
-def _fallback_answer(question: str, sources: List[Dict[str, str]]) -> str:
+def _fallback_answer(
+    question: str, sources: List[Dict[str, str]]
+) -> Tuple[str, List[Dict[str, str]]]:
+    """Return answer text and the entries actually cited (S1…Sn aligned with citations)."""
     question_lower = question.lower()
-    has_walk = any(term in question_lower for term in ("walk", "exercise"))
-    has_feed = any(term in question_lower for term in ("feed", "feeding", "meal", "food"))
-
-    if has_walk and has_feed:
-        return (
+    if _is_walk_feed_meal_timing_question(question_lower) and len(sources) >= 2:
+        cited = sources[:2]
+        text = (
             "A good default is to keep a consistent routine and avoid feeding right before activity. "
             "For most dogs, do the walk first, then feed shortly after once your dog has settled. [S1][S2]\n\n"
             "If your dog has a medical condition, history of stomach issues, or specific vet instructions, "
             "follow your veterinarian's guidance."
         )
+        return text, cited
 
     top_points = []
+    cited_entries: List[Dict[str, str]] = []
     for i, entry in enumerate(sources, start=1):
         title = entry.get("title", "Guidance").strip()
         content = entry.get("content", "").strip()
         if content:
             top_points.append(f"- {title}: {content} [S{i}]")
+            cited_entries.append(entry)
 
     if not top_points:
-        return "I found limited matching notes. Please add more details so I can give a targeted recommendation."
+        return (
+            "I found limited matching notes. Please add more details so I can give a targeted recommendation.",
+            [],
+        )
 
+    max_bullets = min(3, len(top_points))
+    body = "\n".join(top_points[:max_bullets])
     return (
         "Based on your question, here is the most relevant guidance:\n\n"
-        + "\n".join(top_points[:2])
-        + "\n\nIf symptoms or medical concerns are involved, contact a veterinarian."
+        + body
+        + "\n\nIf symptoms or medical concerns are involved, contact a veterinarian.",
+        cited_entries[:max_bullets],
     )
 
 
-def _call_openai(api_key: str, prompt: str) -> Optional[str]:
+def _call_openai(api_key: str, prompt: str, *, log: Optional[logging.Logger] = None) -> Optional[str]:
     payload = {
-        "model": DEFAULT_MODEL,
+        "model": _default_chat_model(),
         "messages": [
             {
                 "role": "system",
@@ -324,12 +660,13 @@ def _call_openai(api_key: str, prompt: str) -> Optional[str]:
             },
             {"role": "user", "content": prompt},
         ],
-        "temperature": 0.2,
+        "temperature": float(os.getenv("PAWPAL_AI_TEMPERATURE", "0.2")),
     }
 
     data = json.dumps(payload).encode("utf-8")
+    url = _openai_chat_url()
     req = request.Request(
-        OPENAI_URL,
+        url,
         data=data,
         headers={
             "Authorization": f"Bearer {api_key}",
@@ -339,11 +676,43 @@ def _call_openai(api_key: str, prompt: str) -> Optional[str]:
     )
 
     try:
-        with request.urlopen(req, timeout=20) as response:
+        with request.urlopen(req, timeout=45) as response:
             body = json.loads(response.read().decode("utf-8"))
         return body["choices"][0]["message"]["content"].strip()
-    except (HTTPError, URLError, KeyError, ValueError):
+    except HTTPError as exc:
+        if log:
+            try:
+                err_body = exc.read().decode("utf-8")[:1200]
+            except OSError:
+                err_body = str(exc.reason)
+            log.warning("OpenAI HTTP %s %s — %s", exc.code, exc.reason, err_body[:500])
         return None
+    except (URLError, KeyError, ValueError, TypeError):
+        return None
+
+
+def _try_openai_rag_answer(
+    api_key: str,
+    prompt: str,
+    num_sources: int,
+    logger: logging.Logger,
+) -> Optional[str]:
+    """Call chat completions; retry once if the model omits valid [Sn] citations."""
+    reply = _call_openai(api_key, prompt, log=logger)
+    if reply and validate_citations(reply, num_sources):
+        return reply
+
+    suffix = (
+        "\n\n---\nYour previous reply failed the citation checker. Answer again briefly. "
+        f"Include at least one valid bracket citation from exactly this set only: "
+        f"{', '.join(f'[S{i}]' for i in range(1, num_sources + 1))}"
+        ". Put citations right after supported facts."
+    )
+    logger.warning("OpenAI RAG citation check failed — retry")
+    retry = _call_openai(api_key, prompt + suffix, log=logger)
+    if retry and validate_citations(retry, num_sources):
+        return retry
+    return None
 
 
 class RagAssistant:
@@ -363,17 +732,17 @@ class RagAssistant:
         extra_context: Optional[str] = None,
         chat_history: Optional[List[Dict[str, str]]] = None,
     ) -> Dict[str, object]:
-        query = question.strip()
-        if extra_context:
-            query = f"{query}\n\nContext:\n{extra_context.strip()}"
-
-        cache_key = f"sources::{query}".lower()
-        if cache_key in self._retrieval_cache:
-            sources = self._retrieval_cache[cache_key]
+        question_clean = question.strip()
+        retrieval_key = question_clean.lower()
+        if retrieval_key in self._retrieval_cache:
+            sources = self._retrieval_cache[retrieval_key]
             self.logger.info("Retrieval cache hit")
         else:
-            sources = retrieve_entries(query, self.entries, self.k, index=self.index)
-            self._retrieval_cache[cache_key] = sources
+            # Use the user question only so schedule context strings do not skew ranking.
+            sources = retrieve_entries(
+                question_clean, self.entries, self.k, index=self.index
+            )
+            self._retrieval_cache[retrieval_key] = sources
 
         if not sources:
             self.logger.info("No sources matched query")
@@ -382,6 +751,11 @@ class RagAssistant:
                 "sources": [],
                 "mode": "no_sources",
             }
+
+        if _is_walk_feed_meal_timing_question(question_clean.lower()):
+            wf = _resolve_entries_by_ids(self.entries, ["kb_walks", "kb_feeding"])
+            if len(wf) == 2:
+                sources = wf
 
         source_text, source_meta = format_sources(sources)
         history_text = ""
@@ -408,18 +782,31 @@ class RagAssistant:
             self.logger.info("Answer cache hit")
             return self._answer_cache[answer_key]
 
-        api_key = os.getenv("OPENAI_API_KEY")
+        api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
         if api_key:
-            response = _call_openai(api_key, prompt)
-            if response and validate_citations(response, len(source_meta)):
-                self.logger.info("Answered with OpenAI model")
-                result = {"answer": response, "sources": source_meta, "mode": "openai"}
+            response = _try_openai_rag_answer(
+                api_key, prompt, len(source_meta), self.logger
+            )
+            if response:
+                result = {
+                    "answer": response,
+                    "sources": source_meta,
+                    "mode": "openai",
+                }
+                self.logger.info(
+                    "Answered with OpenAI model %s",
+                    _default_chat_model(),
+                )
                 self._answer_cache[answer_key] = result
                 return result
-            self.logger.warning("OpenAI response missing citations or failed")
+            self.logger.warning("OpenAI response missing citations or failed after retry")
 
-        fallback = _fallback_answer(question, sources)
+        fallback_text, cited_entries = _fallback_answer(question_clean, sources)
         self.logger.info("Answered with fallback template")
-        result = {"answer": fallback, "sources": source_meta, "mode": "fallback"}
+        result = {
+            "answer": fallback_text,
+            "sources": _sources_meta(cited_entries),
+            "mode": "fallback",
+        }
         self._answer_cache[answer_key] = result
         return result

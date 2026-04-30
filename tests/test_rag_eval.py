@@ -52,9 +52,10 @@ def test_rag_eval_fallback_determinism_and_token_expectations():
         if not expected_ids:
             continue
         sources = retrieve_entries(case["question"], entries, k=3, index=assistant.index)
-        a = _fallback_answer(case["question"], sources)
-        b = _fallback_answer(case["question"], sources)
+        a, cited_a = _fallback_answer(case["question"], sources)
+        b, cited_b = _fallback_answer(case["question"], sources)
         assert a == b
+        assert cited_a == cited_b
         for token in case.get("must_contain_any", []):
             assert token.lower() in a.lower()
 
