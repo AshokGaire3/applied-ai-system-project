@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import streamlit as st
 from pawpal_system import Owner
 from ui.helpers import (
@@ -18,6 +20,13 @@ from ui.pages import (
 from ui.navigation import normalize_service, render_sidebar_nav, service_from_query_params
 from ui.theme import apply_theme
 from ui.content import ROADMAP_STATUS
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
+except ImportError:
+    pass
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="wide")
 

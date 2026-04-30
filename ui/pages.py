@@ -1,8 +1,9 @@
 import os
+
 import streamlit as st
 
 from pawpal_system import Owner, Pet, Scheduler, Task
-from rag_engine import RagAssistant
+from rag_engine import RagAssistant, _default_chat_model, _load_env_file
 from ui.content import RAG_GUARDRAILS, RAG_NOT_SUPPORTED, RAG_SUPPORTED_QUESTIONS, ROADMAP_STATUS
 from ui.helpers import PRIORITY_EMOJI, format_plan_context, species_icon, task_emoji
 
@@ -222,6 +223,22 @@ def render_ai_coach_page(kb_file: str) -> None:
     st.markdown('<div class="pawpal-section-title">AI Coach (RAG)</div>', unsafe_allow_html=True)
     st.caption("Chat with PawPal+ and get source-grounded pet-care guidance.")
 
+    _load_env_file()
+
+    llm_ready = bool((os.getenv("OPENAI_API_KEY") or "").strip())
+    model_label = _default_chat_model()
+    if llm_ready:
+        base = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+        st.success(
+            f"**LLM+RAG:** answers use retrieval + `{model_label}` (endpoint `{base}`). "
+            "Citations `[S1]`… must match retrieved sources."
+        )
+    else:
+        st.warning(
+            "No `OPENAI_API_KEY` in environment or `.env` — using offline **fallback** summaries. "
+            "Add your key from [OpenAI API keys](https://platform.openai.com/api-keys) to `.env` and restart Streamlit.",
+        )
+
     st.markdown(
         """
         <div class="pawpal-card">
@@ -273,6 +290,11 @@ def render_ai_coach_page(kb_file: str) -> None:
             with st.chat_message("user" if role == "user" else "assistant"):
                 st.markdown(message.get("content", ""))
                 if role == "assistant":
+                    mode = message.get("mode", "")
+                    if mode == "openai":
+                        st.caption("Rendered with OpenAI (RAG + citations check).")
+                    elif mode == "fallback":
+                        st.caption("Offline fallback (same sources, template layout).")
                     sources = message.get("sources", [])
                     if sources:
                         st.markdown("**Sources used**")
@@ -312,6 +334,4 @@ def render_ai_coach_page(kb_file: str) -> None:
         )
         st.session_state.ai_chat_history = st.session_state.ai_chat_history[-20:]
 
-        if not os.getenv("OPENAI_API_KEY"):
-            st.info("OPENAI_API_KEY is not set. Using local fallback response.")
         st.rerun()
