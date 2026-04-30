@@ -1,0 +1,94 @@
+[
+  {
+    "id": "walk_freq_dog",
+    "question": "How often should I walk a healthy dog?",
+    "expected_kb_ids": ["kb_walks"],
+    "must_contain_any": ["walk", "exercise"]
+  },
+  {
+    "id": "feeding_consistency",
+    "question": "Is it better to feed at the same time every day?",
+    "expected_kb_ids": ["kb_feeding"],
+    "must_contain_any": ["consistent", "times"]
+  },
+  {
+    "id": "medication_timing",
+    "question": "What is best practice for giving a daily pill?",
+    "expected_kb_ids": ["kb_medication"],
+    "must_contain_any": ["scheduled", "daily"]
+  },
+  {
+    "id": "hydration_guidance",
+    "question": "Any reminders for keeping my pet hydrated?",
+    "expected_kb_ids": ["kb_hydration"],
+    "must_contain_any": ["water", "fresh"]
+  },
+  {
+    "id": "grooming_basics",
+    "question": "How should I do basic grooming for my pet?",
+    "expected_kb_ids": ["kb_grooming"],
+    "must_contain_any": ["grooming", "brush"]
+  },
+  {
+    "id": "enrichment_ideas",
+    "question": "Why is enrichment play important for pets?",
+    "expected_kb_ids": ["kb_enrichment"],
+    "must_contain_any": ["enrichment", "play"]
+  },
+  {
+    "id": "cat_litter_hygiene",
+    "question": "How often should I clean a cat litter box?",
+    "expected_kb_ids": ["kb_cats_litter"],
+    "must_contain_any": ["litter", "daily"]
+  },
+  {
+    "id": "rabbit_hay",
+    "question": "What should rabbits always have access to?",
+    "expected_kb_ids": ["kb_rabbits"],
+    "must_contain_any": ["hay"]
+  },
+  {
+    "id": "walk_and_stress",
+    "question": "Do regular dog walks help stress and digestion?",
+    "expected_kb_ids": ["kb_walks"],
+    "must_contain_any": ["stress", "digestion"]
+  },
+  {
+    "id": "feeding_activity_level",
+    "question": "Should meal portions change with activity level and age?",
+    "expected_kb_ids": ["kb_feeding"],
+    "must_contain_any": ["activity", "age"]
+  },
+  {
+    "id": "medication_missed_dose",
+    "question": "What if a medication dose is missed?",
+    "expected_kb_ids": ["kb_medication"],
+    "must_contain_any": ["veterinarian", "missed"]
+  },
+  {
+    "id": "water_bowl_cleaning",
+    "question": "How often should water bowls be cleaned?",
+    "expected_kb_ids": ["kb_hydration"],
+    "must_contain_any": ["clean", "daily"]
+  },
+  {
+    "id": "oos_stock_market",
+    "question": "blorf zentari quoktan",
+    "expected_kb_ids": []
+  },
+  {
+    "id": "oos_js_bug",
+    "question": "xylophar nimbic trelvox",
+    "expected_kb_ids": []
+  },
+  {
+    "id": "oos_space_travel",
+    "question": "kryton vellum zorbit",
+    "expected_kb_ids": []
+  },
+  {
+    "id": "oos_weather",
+    "question": "marnix pluvion drastek",
+    "expected_kb_ids": []
+  }
+]
