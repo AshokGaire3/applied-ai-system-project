@@ -318,6 +318,31 @@ def test_task_exceeding_budget_is_unscheduled():
     assert unscheduled[0][1].description == "Long bath"
 
 
+def test_owner_persistence_round_trip_preserves_date_fields(tmp_path):
+    owner = Owner("Jordan", available_minutes_per_day=120)
+    pet = Pet("Mochi", "dog")
+    task = Task("Morning walk", duration_minutes=20, frequency="daily", start_time="08:00")
+    task.mark_complete(on_date=date(2026, 4, 28))
+    pet.add_task(task)
+    owner.add_pet(pet)
+
+    file_path = tmp_path / "owner_data.json"
+    owner.save_to_json(str(file_path))
+    loaded = Owner.load_from_json(str(file_path))
+
+    assert loaded is not None
+    loaded_task = loaded.get_pets()[0].get_tasks()[0]
+    assert loaded_task.last_completed_date == date(2026, 4, 28)
+    assert loaded_task.next_due_date == date(2026, 4, 29)
+
+
+def test_min_to_time_base_starts_at_eight_am():
+    owner = Owner("Jordan", available_minutes_per_day=120)
+    scheduler = Scheduler(owner)
+    assert scheduler._min_to_time(0) == "08:00"
+    assert scheduler._min_to_time(90) == "09:30"
+
+
 def test_low_priority_task_dropped_when_budget_full():
     """High-priority task fills the budget; the low-priority task is unscheduled."""
     owner = Owner("Jordan", available_minutes_per_day=30)
