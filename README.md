@@ -15,7 +15,7 @@ The **Module 2 PawPal+ prototype** focused on building a coherent **domain model
 ## What changed for the final applied AI system
 
 - **Integrated RAG (`rag_engine`)** — TF-IDF retrieval over `knowledge_base.json`, `[S1]`-style citations, optional OpenAI generation, deterministic fallback when no key or when citations fail validation, logging to `logs/ai.log`.
-- **Modular UI** — Thin [`app.py`](app.py) plus [`ui/`](ui/) (theme, navigation, pages, helpers) for maintainable services: Profile, Pets, Tasks, Schedule, AI Coach.
+- **Modular UI** — Thin [`app.py`](app.py) plus [`ui/`](ui/) (theme, navigation, pages, helpers) for maintainable services: Profile, Pets, Tasks, Schedule, Wellness, Care handoff, AI Coach.
 - **Reliability testing** — `pytest` across [`tests/`](tests/), including [`tests/test_rag_eval.py`](tests/test_rag_eval.py) + [`tests/rag_eval_set.json`](tests/rag_eval_set.json) for retrieval and out-of-scope behavior.
 - **Planning and architecture docs** — [`claude/doc/`](claude/doc/) (requirements, RAG spec, risks, demo script, etc.).
 - **Ethics and model narrative** — [`model_card.md`](model_card.md) for reflection prompts required by the course.
@@ -37,7 +37,7 @@ A busy pet owner needs help staying consistent with pet care. They want an assis
 
 ## Features
 
-- **Service-oriented UI** — Top navigation for `Profile`, `Pets`, `Tasks`, `Schedule`, and `AI Coach` (see [`ui/navigation.py`](ui/navigation.py)).
+- **Service-oriented UI** — Top navigation for `Profile`, `Pets`, `Tasks`, `Schedule`, `Wellness`, `Care handoff`, and `AI Coach` (see [`ui/navigation.py`](ui/navigation.py)). The **Wellness** dashboard surfaces scheduling risk signals and species checklists; **Care handoff** exports a sitter-oriented text brief from your saved tasks. Problem framing: [`PRODUCT_AND_SERVICES.md`](PRODUCT_AND_SERVICES.md).
 - **Live metrics** — Sidebar insights: pets, tasks, due today, conflicts, plus optional roadmap progress ([`ui/content.py`](ui/content.py)).
 - **Modular UI structure** — [`ui/theme.py`](ui/theme.py), [`ui/helpers.py`](ui/helpers.py), [`ui/pages.py`](ui/pages.py) so the entrypoint stays small.
 - **Sort by time** — `Scheduler.sort_by_time()` orders tasks by optional `start_time` (`HH:MM`); missing times sort last.
@@ -102,12 +102,28 @@ pytest tests/
 - **[`tests/test_models.py`](tests/test_models.py)** — Legacy `models` layer coverage (kept from earlier scaffolding).
 - **[`tests/test_rag_engine.py`](tests/test_rag_engine.py)** — Retrieval, `format_sources`, `validate_citations`.
 - **[`tests/test_rag_eval.py`](tests/test_rag_eval.py)** — Retrieval@3 threshold, deterministic fallback, out-of-scope refusal rate using [`tests/rag_eval_set.json`](tests/rag_eval_set.json).
+- **[`rag_eval_report.py`](rag_eval_report.py)** — Human-readable evaluation report with pass/fail summary.
 
 **Rubric-style summary:** With `pytest tests/`, **71 tests pass** offline (domain, `models.py`, UI helpers/navigation, and RAG). The harness in `test_rag_eval.py` enforces retrieval@≥**0.90** on 12 in-scope questions, deterministic fallback wording (including configured `must_contain_any` tokens), and **out-of-scope refusal** at ≥**0.80** on held-out nonsense queries (`mode == "no_sources"`). Confidence scores are not implemented (the system prefers citation enforcement and deterministic fallbacks). In manual runs, answers can still read generic when the KB is thin for a niche question—exactly why retrieval metrics and citations are tightened.
 
 **Human spot-check:** Before submission, eyeball ~5 AI Coach replies (mix of scheduling context + pure pet-care): confirm **`[Sn]` citations** line up with the numbered sources pane and tone stays cautious (no medical diagnoses). Extend this narrative in **[`claude/doc/evaluation.md`](claude/doc/evaluation.md)** if you record counts or screenshots.
 
 Tests are designed to pass **without** `OPENAI_API_KEY`. For optional live LLM verification, set the key and use the AI Coach manually.
+
+### Guardrail/evaluation summary script
+
+Run a single command to print reliability metrics and threshold checks:
+
+```bash
+python rag_eval_report.py
+```
+
+Example output fields:
+
+- `Retrieval@3`
+- `Fallback token coverage`
+- `OOS refusal rate`
+- `Overall: PASS/FAIL`
 
 ---
 
@@ -119,8 +135,8 @@ Building PawPal+ as an **applied AI system** reinforced that **retrieval quality
 
 ## Demo and video walkthrough
 
-- **Screenshots:** Export or capture UI snapshots into [`assets/`](assets/) (for example `Demo1.png`, `Demo2.png`) before submission; naming/export notes live in [`assets/README.md`](assets/README.md).
-- **12-minute presenter script:** [`claude/doc/demo-script.md`](claude/doc/demo-script.md).
+- **Screenshots / diagrams:** Everything visual for graders lives in [`assets/`](assets/). Right now that’s `Demo1.png`, `Demo2.png`, `uml_diagram.png`, and `uml_rag.png` — swap them anytime if you retake screenshots or re-export from Mermaid; names are listed in [`assets/README.md`](assets/README.md).
+- **Presenter script:** [`claude/doc/demo-script.md`](claude/doc/demo-script.md).
 
 **Course Loom requirement:** Add your recording link once available:
 
@@ -136,7 +152,7 @@ Loom: (paste URL here — show end-to-end run, AI Coach, and guardrail/fallback 
 
 **Layered runtime view:** Data flows **user → Streamlit (`app.py` + `ui/`) → domain (`pawpal_system`) OR RAG (`rag_engine`) → JSON / logs.** The domain stack does **not** import Streamlit or the RAG layer; the UI stitches schedule context into questions. Full Mermaid diagrams, dependency rules, and sequences: **[`claude/doc/architecture.md`](claude/doc/architecture.md)**.
 
-**Images:** Screenshots and any exported diagram PNGs live under [`assets/`](assets/) — add or refresh them whenever you finalize visuals for grading or portfolio.
+**Images:** Same folder — [`assets/`](assets/) — for anything you want in the write-up or slides (see list above).
 
 ---
 
