@@ -23,6 +23,7 @@ ROADMAP_STATUS = [
     ("Domain model + scheduler", "Done"),
     ("Persistence + Streamlit services", "Done"),
     ("RAG v1 with citation checks", "Done"),
+    ("Wellness + care handoff services", "Done"),
     ("RAG evaluation harness", "Pending"),
     ("Final demo/report polish", "Pending"),
 ]

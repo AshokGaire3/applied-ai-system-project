@@ -6,16 +6,20 @@ from ui.helpers import (
     get_app_metrics,
     render_quick_actions,
     render_right_panel,
+    render_skeleton_cards,
     render_summary_cards,
     render_today_overview,
     render_top_bar,
+    render_top_bar_actions,
 )
 from ui.pages import (
     render_ai_coach_page,
+    render_care_handoff_page,
     render_pets_page,
     render_profile_page,
     render_schedule_page,
     render_tasks_page,
+    render_wellness_page,
 )
 from ui.navigation import normalize_service, render_sidebar_nav, service_from_query_params
 from ui.theme import apply_theme
@@ -80,6 +84,10 @@ with st.sidebar:
 nav = render_sidebar_nav(nav)
 st.session_state.active_service = nav
 render_top_bar(nav)
+render_top_bar_actions(nav)
+if "ui_bootstrap_done" not in st.session_state:
+    render_skeleton_cards(4)
+    st.session_state.ui_bootstrap_done = True
 render_summary_cards(metrics)
 
 if nav == "Profile":
@@ -95,6 +103,10 @@ with main_col:
         render_tasks_page(DATA_FILE)
     elif nav == "Schedule":
         render_schedule_page()
+    elif nav == "Wellness":
+        render_wellness_page(owner)
+    elif nav == "Care handoff":
+        render_care_handoff_page(owner)
     elif nav == "AI Coach":
         render_ai_coach_page(KB_FILE)
 

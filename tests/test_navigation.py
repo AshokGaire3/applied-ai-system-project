@@ -16,3 +16,8 @@ def test_normalize_service_falls_back_for_unknown_value():
 
 def test_normalize_service_falls_back_for_empty_value():
     assert normalize_service("") == DEFAULT_SERVICE
+
+
+def test_navigation_accepts_wellness_and_handoff():
+    assert normalize_service("Wellness") == "Wellness"
+    assert normalize_service("Care handoff") == "Care handoff"

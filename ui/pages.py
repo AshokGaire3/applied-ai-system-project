@@ -5,7 +5,16 @@ import streamlit as st
 from pawpal_system import Owner, Pet, Scheduler, Task
 from rag_engine import RagAssistant, _default_chat_model, _load_env_file
 from ui.content import RAG_GUARDRAILS, RAG_NOT_SUPPORTED, RAG_SUPPORTED_QUESTIONS, ROADMAP_STATUS
-from ui.helpers import PRIORITY_EMOJI, format_plan_context, species_icon, task_emoji
+from ui.helpers import (
+    PRIORITY_EMOJI,
+    build_care_handoff_document,
+    count_tasks_missing_start_time,
+    format_plan_context,
+    get_app_metrics,
+    iter_medication_adjacent_tasks,
+    species_icon,
+    task_emoji,
+)
 
 
 def _save_owner_data(data_file: str) -> bool:
@@ -135,7 +144,25 @@ def render_tasks_page(data_file: str) -> None:
 
     all_pairs = st.session_state.owner.get_all_tasks()
     if all_pairs:
+        f1, f2, f3 = st.columns([1.2, 1, 1.2])
+        with f1:
+            filter_pet = st.selectbox("Filter by pet", ["All"] + pet_names, index=0)
+        with f2:
+            filter_priority = st.selectbox("Filter by priority", ["All", "high", "medium", "low"], index=0)
+        with f3:
+            search_text = st.text_input("Search tasks", value="", placeholder="walk, feed, vet...")
+
         sorted_pairs = sorted(all_pairs, key=lambda pair: pair[1].start_time or "99:99")
+        filtered_pairs = []
+        for pet, task in sorted_pairs:
+            if filter_pet != "All" and pet.name != filter_pet:
+                continue
+            if filter_priority != "All" and task.priority != filter_priority:
+                continue
+            if search_text.strip() and search_text.lower() not in task.description.lower():
+                continue
+            filtered_pairs.append((pet, task))
+
         rows = [
             {
                 "Pet": f"{species_icon(pet.species)} {pet.name}",
@@ -146,9 +173,12 @@ def render_tasks_page(data_file: str) -> None:
                 "Frequency": task.frequency,
                 "Status": "Done" if task.completed else "Pending",
             }
-            for pet, task in sorted_pairs
+            for pet, task in filtered_pairs
         ]
-        st.dataframe(rows, use_container_width=True, hide_index=True)
+        if rows:
+            st.dataframe(rows, use_container_width=True, hide_index=True)
+        else:
+            st.info("No tasks match current filters.")
 
         scheduler_preview = Scheduler(st.session_state.owner)
         early_conflicts = scheduler_preview.detect_time_conflicts()
@@ -189,7 +219,15 @@ def render_schedule_page() -> None:
                     "Frequency": task.frequency,
                 }
             )
-        st.dataframe(plan_rows, use_container_width=True, hide_index=True)
+        view_mode = st.radio("Schedule view", ["Table", "Timeline"], horizontal=True, key="schedule_view_mode")
+        if view_mode == "Table":
+            st.dataframe(plan_rows, use_container_width=True, hide_index=True)
+        else:
+            for row in plan_rows:
+                st.markdown(
+                    f"- **{row['Time Window']}** · {row['Pet']} · {row['Task']} "
+                    f"({row['Duration (min)']} min)"
+                )
 
         plan_conflicts = scheduler.detect_conflicts(plan)
         time_conflicts = scheduler.detect_time_conflicts()
@@ -335,3 +373,125 @@ def render_ai_coach_page(kb_file: str) -> None:
         st.session_state.ai_chat_history = st.session_state.ai_chat_history[-20:]
 
         st.rerun()
+
+
+def render_wellness_page(owner: Owner) -> None:
+    st.markdown('<div class="pawpal-section-title">Wellness readiness</div>', unsafe_allow_html=True)
+    st.caption(
+        "Operational signals from your PawPal+ data—not a diagnosis. "
+        "Use alongside veterinary guidance for clinical decisions."
+    )
+
+    metrics = get_app_metrics(owner)
+    med_pairs = list(iter_medication_adjacent_tasks(owner))
+    risky_high_no_time = count_tasks_missing_start_time(owner)
+
+    sig1, sig2, sig3 = st.columns(3)
+    with sig1:
+        if metrics["conflicts"]:
+            st.error(f"{metrics['conflicts']} time conflict(s)")
+        else:
+            st.success("No timed conflicts")
+    with sig2:
+        if metrics["due_minutes"] > metrics["daily_budget"]:
+            st.warning("Due minutes exceed daily budget")
+        else:
+            st.info("Workload vs budget: OK")
+    with sig3:
+        if risky_high_no_time:
+            st.warning(f"{risky_high_no_time} high-priority task(s) lack a start hint")
+        else:
+            st.success("High-priority tasks specify times or are clear")
+
+    if med_pairs:
+        st.markdown("**Medication / procedure-like tasks (scan of descriptions)**")
+        for pet, task in med_pairs[:12]:
+            st.markdown(
+                f"- {species_icon(pet.species)} **{pet.name}** · {task_emoji(task.description)} "
+                f"{task.description} _(priority {task.priority})_"
+            )
+        if len(med_pairs) > 12:
+            st.caption(f"…and {len(med_pairs) - 12} more. Refine wording in Tasks.")
+    else:
+        st.info("No medication-like keywords in task text. Add explicit med tasks if relevant.")
+
+    with st.expander("Dog household checklist (preventive + routine)"):
+        st.markdown(
+            "- **Identification:** collar ID + microchip registration current after moves.\n"
+            "- **Parasites:** species-appropriate flea/tick/heartworm plan per veterinarian.\n"
+            "- **Nutrition:** measured meals; separate pets if resource guarding.\n"
+            "- **Exercise:** match heat/age; avoid hard work right after huge meals unless cleared.\n"
+            "- **Hydration:** fresh water; more bowls in warm weather or after hikes."
+        )
+    with st.expander("Cat household checklist"):
+        st.markdown(
+            "- **Elimination:** scoop daily; one box per cat + one extra when possible.\n"
+            "- **Hydration / diet:** water placement; wet/dry tradeoffs—ask your vet for your cat.\n"
+            "- **Indoor hazards:** secure windows, toxic plants, string toys supervised."
+        )
+    with st.expander("Rabbit household checklist"):
+        st.markdown(
+            "- **Fiber first:** unlimited hay; limit sudden diet changes.\n"
+            "- **Mobility & teeth:** watch eating speed, droppings, and hock pressure sores.\n"
+            "- **Predator stress:** safe hiding and low-noise recovery after travel."
+        )
+
+    left, right = st.columns(2)
+    with left:
+        if st.button("Open Schedule", use_container_width=True, key="wellness_sched"):
+            st.query_params["page"] = "schedule"
+            st.rerun()
+    with right:
+        if st.button("Ask AI Coach", use_container_width=True, key="wellness_ai"):
+            st.query_params["page"] = "ai-coach"
+            st.rerun()
+
+
+def render_care_handoff_page(owner: Owner) -> None:
+    st.markdown('<div class="pawpal-section-title">Care handoff</div>', unsafe_allow_html=True)
+    st.caption(
+        "Export an at-a-glance brief for sitters, partners, or travel. "
+        "You complete emergency numbers; PawPal+ lists what is already modeled."
+    )
+
+    pets = owner.get_pets()
+    if not pets:
+        st.warning("Add pets under **Pets** before generating a handoff sheet.")
+        return
+
+    with st.form("handoff_form"):
+        caregiver = st.text_input("Trusted caregiver name (optional)", placeholder="Alex / Rover sitter")
+        vet_phone = st.text_input("Preferred vet / clinic phone (optional)")
+        emergency_line = st.text_input(
+            "After-hours / ER instruction (optional)",
+            placeholder="Nearest 24h ER: name + phone",
+        )
+        household_notes = st.text_area(
+            "Food brands, allergies, microchip #, leash quirks, escape risks",
+            height=120,
+            placeholder="Dry food: …\nWet: …\nAllergies: …\nCarrier location: …",
+        )
+        submitted = st.form_submit_button("Generate handoff text")
+
+    if submitted:
+        doc = build_care_handoff_document(
+            owner,
+            caregiver_label=caregiver,
+            vet_phone=vet_phone,
+            emergency_line=emergency_line,
+            household_notes=household_notes,
+        )
+        st.session_state["_last_handoff_doc"] = doc
+
+    if "_last_handoff_doc" in st.session_state:
+        st.text_area(
+            "Preview (copy or download)",
+            st.session_state["_last_handoff_doc"],
+            height=360,
+        )
+        st.download_button(
+            label="Download handoff (.txt)",
+            data=st.session_state["_last_handoff_doc"],
+            file_name="pawpal_care_handoff.txt",
+            mime="text/plain",
+        )

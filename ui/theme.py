@@ -120,6 +120,21 @@ def apply_theme() -> None:
             font-size: 1.35rem;
         }
 
+        .pawpal-skeleton-card {
+            height: 88px;
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            border: 1px solid var(--pp-border);
+            background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 37%, #f3f4f6 63%);
+            background-size: 400% 100%;
+            animation: pawpal-shimmer 1.2s ease infinite;
+        }
+
+        @keyframes pawpal-shimmer {
+            0% { background-position: 100% 0; }
+            100% { background-position: 0 0; }
+        }
+
         /* floating quick actions container */
         div[data-testid="stVerticalBlock"]:has(
             > div[data-testid="element-container"]

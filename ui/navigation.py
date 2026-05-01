@@ -6,6 +6,8 @@ NAV_ITEMS: tuple[tuple[str, str], ...] = (
     ("Pets", "🐾"),
     ("Tasks", "✅"),
     ("Schedule", "🗓️"),
+    ("Wellness", "💚"),
+    ("Care handoff", "📄"),
     ("AI Coach", "🤖"),
 )
 DEFAULT_SERVICE = NAV_ITEMS[0][0]

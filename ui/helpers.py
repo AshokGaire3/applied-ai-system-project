@@ -1,4 +1,6 @@
-from pawpal_system import Owner, Scheduler
+from typing import Iterator
+
+from pawpal_system import Owner, Pet, Scheduler, Task
 import streamlit as st
 
 
@@ -43,6 +45,106 @@ def get_app_metrics(owner: Owner) -> dict:
     }
 
 
+_MEDICATION_HINTS = (
+    "med",
+    "pill",
+    "insulin",
+    "shot",
+    "injection",
+    "prescription",
+    "metformin",
+    "antibiotic",
+)
+
+
+def iter_medication_adjacent_tasks(owner: Owner) -> Iterator[tuple[Pet, Task]]:
+    for pet in owner.get_pets():
+        for task in pet.get_tasks():
+            d = task.description.lower()
+            if any(h in d for h in _MEDICATION_HINTS):
+                yield pet, task
+
+
+def count_tasks_missing_start_time(owner: Owner) -> int:
+    count = 0
+    for _, task in owner.get_all_tasks():
+        if task.start_time is None and task.priority == "high":
+            count += 1
+    return count
+
+
+def build_care_handoff_document(
+    owner: Owner,
+    *,
+    caregiver_label: str,
+    vet_phone: str,
+    emergency_line: str,
+    household_notes: str,
+) -> str:
+    lines = [
+        "=" * 56,
+        "PAWPAL+ — CARE HANDOFF (human-generated summary)",
+        "=" * 56,
+        "",
+        f"Owner / primary caregiver: {owner.name}",
+        f"Daily care budget (minutes/day): {owner.available_minutes_per_day}",
+        f"Printed for sitter/contact: {(caregiver_label or '').strip() or '(not entered)'}",
+        f"Preferred vet clinic line (if any): {(vet_phone or '').strip() or '(not entered)'}",
+        f"Local emergency guideline: {(emergency_line or '').strip() or '(e.g. ER vet / animal hospital)'}",
+        "",
+        "--- Household notes ---",
+        (household_notes or "").strip() or "(none entered — add food brands, quirks, leash rules.)",
+        "",
+        "--- Pets (from your PawPal+ profile) ---",
+    ]
+
+    pets = owner.get_pets()
+    if not pets:
+        lines.append("(No pets on file — register pets before exporting.)")
+
+    med_lines: list[str] = []
+    for pet in pets:
+        lines.append(
+            f"* {species_icon(pet.species)} {pet.name} — {pet.species}, age ~{pet.age_years} y"
+        )
+        lines.append(f"  Tasks captured: {len(pet.get_tasks())}")
+        for task in sorted(
+            pet.get_tasks(), key=lambda t: (-t.priority_rank(), t.description.lower())
+        ):
+            st_hint = task.start_time or "no_fixed_time_entered"
+            lines.append(
+                f"    - [{task.priority}] {task_emoji(task.description)} {task.description} "
+                f"({task.duration_minutes}m, {task.frequency}, start_hint={st_hint})"
+            )
+    for pet, task in sorted(iter_medication_adjacent_tasks(owner), key=lambda x: x[0].name):
+        med_lines.append(f"  · {pet.name}: {task.description} (priority={task.priority})")
+
+    lines.append("")
+    lines.append("--- Medication / procedure-like tasks (keyword scan) ---")
+    if med_lines:
+        lines.extend(med_lines)
+        lines.append(
+            "Verify timing with the pet’s veterinarian; do not change doses from this sheet."
+        )
+    else:
+        lines.append(
+            "(None detected from task descriptions — add meds tasks explicitly if applicable.)"
+        )
+
+    lines.extend(
+        [
+            "",
+            "--- Operational checklist ---",
+            "- Confirm food type, portion cheat-sheet, and any allergies (not tracked in PawPal+).",
+            "- Show sitter conflict-free schedule preview from the Schedule service.",
+            "- Leave written vet authorization if your clinic requires permission for emergencies.",
+            "",
+            "Disclaimer: This export is informational for trusted caregivers—not medical advice.",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def format_plan_context(plan: list[dict]) -> str:
     if not plan:
         return "No scheduled tasks yet."
@@ -66,6 +168,30 @@ def render_top_bar(page_title: str) -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_top_bar_actions(page_title: str) -> None:
+    actions = {
+        "Profile": [("Go to Pets", "pets"), ("Go to Tasks", "tasks")],
+        "Pets": [("Add Task", "tasks"), ("Open Schedule", "schedule")],
+        "Tasks": [("Add Pet", "pets"), ("Open Schedule", "schedule")],
+        "Schedule": [("Back to Tasks", "tasks"), ("Ask AI Coach", "ai-coach")],
+        "Wellness": [("Open Schedule", "schedule"), ("Care handoff", "care-handoff")],
+        "Care handoff": [("Wellness", "wellness"), ("AI Coach", "ai-coach")],
+        "AI Coach": [("Wellness", "wellness"), ("Care handoff", "care-handoff")],
+    }
+    page_actions = actions.get(page_title, [])
+    if not page_actions:
+        return
+    col_spacer, col_a, col_b = st.columns([4, 1, 1])
+    with col_a:
+        if st.button(page_actions[0][0], use_container_width=True, key=f"topbar_a_{page_title}"):
+            st.query_params["page"] = page_actions[0][1]
+            st.rerun()
+    with col_b:
+        if st.button(page_actions[1][0], use_container_width=True, key=f"topbar_b_{page_title}"):
+            st.query_params["page"] = page_actions[1][1]
+            st.rerun()
 
 
 def render_summary_cards(metrics: dict) -> None:
@@ -121,9 +247,11 @@ def render_right_panel(metrics: dict) -> None:
     else:
         st.success("Schedule health looks good.")
     with st.expander("Suggested next actions"):
-        st.markdown("- Add missing feeding tasks")
-        st.markdown("- Run Schedule Optimization")
-        st.markdown("- Ask AI Coach for timing advice")
+        st.markdown("- Add missing feeding or medication tasks")
+        st.markdown("- Run **Schedule** optimization and clear conflicts")
+        st.markdown("- Scan **Wellness** for readiness gaps")
+        st.markdown("- Export **Care handoff** before travel")
+        st.markdown("- Ask **AI Coach** for timing or care basics (RAG)")
 
 
 def render_quick_actions() -> None:
@@ -136,3 +264,16 @@ def render_quick_actions() -> None:
             if st.button("Add Task", use_container_width=True, key="fab_add_task"):
                 st.query_params["page"] = "tasks"
                 st.rerun()
+            if st.button("Wellness", use_container_width=True, key="fab_wellness"):
+                st.query_params["page"] = "wellness"
+                st.rerun()
+            if st.button("Care handoff", use_container_width=True, key="fab_handoff"):
+                st.query_params["page"] = "care-handoff"
+                st.rerun()
+
+
+def render_skeleton_cards(count: int = 3) -> None:
+    cols = st.columns(count)
+    for col in cols:
+        with col:
+            st.markdown('<div class="pawpal-skeleton-card"></div>', unsafe_allow_html=True)
